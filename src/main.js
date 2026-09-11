@@ -1089,6 +1089,7 @@ function bookmarkAyah(surahId, ayahNum) {
 // ── Athkar & Prophetic Duas Hub Handlers ───────────────────
 function switchAthkarCategory(catId) {
   setAthkarCategory(catId);
+  setPrayerSub('all');
   setAthkarSearch('');
   const athkarTab = document.getElementById('wird-athkar-tab');
   if (athkarTab) {

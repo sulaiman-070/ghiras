@@ -211,6 +211,10 @@ export function renderHome() {
         <span>🕌</span>
         <span style="font-weight:700;font-size:0.78rem">بعد الصلوات</span>
       </button>
+      <button class="chip" onclick="App.openAthkarCategory('quranic')" style="cursor:pointer;padding:8px 10px;justify-content:center;gap:6px;background:var(--color-bg-card);border:1px solid rgba(197,160,89,0.3)">
+        <span>📖</span>
+        <span style="font-weight:700;font-size:0.78rem">أدعية القرآن</span>
+      </button>
       <button class="chip" onclick="App.openAthkarCategory('sustenance')" style="cursor:pointer;padding:8px 10px;justify-content:center;gap:6px;background:var(--color-bg-card);border:1px solid rgba(197,160,89,0.3)">
         <span>🌾</span>
         <span style="font-weight:700;font-size:0.78rem">الرزق والديْن</span>
@@ -219,9 +223,21 @@ export function renderHome() {
         <span>💎</span>
         <span style="font-weight:700;font-size:0.78rem">محو الذنوب</span>
       </button>
+      <button class="chip" onclick="App.openAthkarCategory('parents_family')" style="cursor:pointer;padding:8px 10px;justify-content:center;gap:6px;background:var(--color-bg-card);border:1px solid rgba(197,160,89,0.3)">
+        <span>👨‍👩‍👧</span>
+        <span style="font-weight:700;font-size:0.78rem">الوالدان والذرية</span>
+      </button>
       <button class="chip" onclick="App.openAthkarCategory('healing')" style="cursor:pointer;padding:8px 10px;justify-content:center;gap:6px;background:var(--color-bg-card);border:1px solid rgba(197,160,89,0.3)">
         <span>🛡️</span>
         <span style="font-weight:700;font-size:0.78rem">الشفاء والحفظ</span>
+      </button>
+      <button class="chip" onclick="App.openAthkarCategory('daily_life')" style="cursor:pointer;padding:8px 10px;justify-content:center;gap:6px;background:var(--color-bg-card);border:1px solid rgba(197,160,89,0.3)">
+        <span>🚗</span>
+        <span style="font-weight:700;font-size:0.78rem">اليوم والسفر</span>
+      </button>
+      <button class="chip" onclick="App.openAthkarCategory('guidance')" style="cursor:pointer;padding:8px 10px;justify-content:center;gap:6px;background:var(--color-bg-card);border:1px solid rgba(197,160,89,0.3)">
+        <span>🧭</span>
+        <span style="font-weight:700;font-size:0.78rem">الاستخارة والهداية</span>
       </button>
     </div>
   </section>

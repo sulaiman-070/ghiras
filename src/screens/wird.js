@@ -462,6 +462,36 @@ export function renderAthkarTabContent() {
   const s = State.get();
   const counters = s.athkarCounters || {};
 
+  // Dynamic subcategories based on active category
+  const subCategoryConfigs = {
+    prayers: [
+      { id: 'all', label: 'الكل (جميع الصلوات)' },
+      { id: 'دبر المكتوبة', label: 'دبر الصلوات المكتوبة 🕌' },
+      { id: 'الفجر', label: 'صلاة الفجر 🌅' },
+      { id: 'الفجر والمغرب', label: 'الفجر والمغرب 🌇' },
+      { id: 'الوتر والعشاء', label: 'الوتر والعشاء 🌙' },
+      { id: 'السجود والركوع', label: 'السجود والركوع 🤲' }
+    ],
+    quranic: [
+      { id: 'all', label: 'الكل 📖' },
+      { id: 'جوامع الكلم', label: 'جوامع الكلم 🌟' },
+      { id: 'الرزق والتيسير', label: 'الرزق والتيسير 🌾' },
+      { id: 'الأنبياء', label: 'أدعية الأنبياء 🕊️' },
+      { id: 'الهداية والثبات', label: 'الهداية والثبات 🧭' },
+      { id: 'المغفرة والرحمة', label: 'المغفرة والرحمة 💎' }
+    ],
+    daily_life: [
+      { id: 'all', label: 'الكل 🗺️' },
+      { id: 'المنزل', label: 'المنزل 🏠' },
+      { id: 'المسجد', label: 'المسجد 🕌' },
+      { id: 'السفر والدابة', label: 'السفر والركوب 🚗' },
+      { id: 'الطعام والشراب', label: 'الطعام والشراب 🍲' },
+      { id: 'أحوال أخرى', label: 'أحوال أخرى 🌧️' }
+    ]
+  };
+
+  const activeSubFilters = subCategoryConfigs[_activeAthkarCat] || null;
+
   // Determine which items to display
   let displayItems = [];
   let isSearchActive = Boolean(_athkarSearchQuery && _athkarSearchQuery.trim());
@@ -477,7 +507,7 @@ export function renderAthkarTabContent() {
   } else {
     displayItems = ATHKAR_DUAS.filter(item => {
       if (item.category !== _activeAthkarCat) return false;
-      if (_activeAthkarCat === 'prayers' && _activePrayerSub !== 'all') {
+      if (activeSubFilters && _activePrayerSub !== 'all') {
         return item.subCategory === _activePrayerSub || item.subCategory === 'جميع الصلوات';
       }
       return true;
@@ -486,15 +516,6 @@ export function renderAthkarTabContent() {
 
   // Active Category info
   const activeCatMeta = ATHKAR_CATEGORIES.find(c => c.id === _activeAthkarCat) || ATHKAR_CATEGORIES[0];
-
-  // Prayers subcategories list
-  const prayerSubs = [
-    { id: 'all', label: 'الكل (جميع الصلوات)' },
-    { id: 'دبر المكتوبة', label: 'دبر الصلوات المكتوبة 🕌' },
-    { id: 'الفجر', label: 'صلاة الفجر 🌅' },
-    { id: 'الفجر والمغرب', label: 'الفجر والمغرب 🌇' },
-    { id: 'الوتر والعشاء', label: 'الوتر والعشاء 🌙' }
-  ];
 
   // Habit status for morning / evening
   let habitBannerHtml = '';
@@ -534,7 +555,7 @@ export function renderAthkarTabContent() {
       <div class="thikr-search-box">
         <span class="material-symbols-outlined thikr-search-icon">search</span>
         <input type="text" class="thikr-search-input" id="athkar-search-input"
-          placeholder="ابحث في الأذكار والأدعية أو فوائدها (مثال: الرزق، الفجر، محو الذنوب، سيد الاستغفار)..."
+          placeholder="ابحث في أكثر من ٨٠ ذكراً ودعاء وفضائلها (مثال: الرزق، الفجر، محو الذنوب، استخارة)..."
           value="${_athkarSearchQuery}"
           oninput="App.onAthkarSearch(this.value)">
         ${_athkarSearchQuery ? `
@@ -557,10 +578,10 @@ export function renderAthkarTabContent() {
         }).join('')}
       </div>
 
-      <!-- 3. Prayers Sub-filter (when Prayers category is active) -->
-      ${!isSearchActive && _activeAthkarCat === 'prayers' ? `
+      <!-- 3. Sub-filter Chips (when active category has subcategories) -->
+      ${!isSearchActive && activeSubFilters ? `
         <div class="athkar-subfilters-row">
-          ${prayerSubs.map(sub => `
+          ${activeSubFilters.map(sub => `
             <button class="athkar-subfilter-btn ${_activePrayerSub === sub.id ? 'active' : ''}" onclick="App.switchPrayerSub('${sub.id}')">
               ${sub.label}
             </button>
