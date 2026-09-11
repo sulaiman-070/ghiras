@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#FAF7F2">
+  <meta name="description" content="غِراس — تطبيق لبناء عادات روحية متدرجة ومستمرة. القليل المستمر أفضل من الكثير المنقطع.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="غِراس">
+
+  <title>غِراس — GHIRAS</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Amiri+Quran&family=Amiri:ital,wght@0,400;0,700;1,400&family=Scheherazade+New:wght@400;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="src/styles/tokens.css">
+  <link rel="stylesheet" href="src/styles/base.css">
+  <link rel="stylesheet" href="src/styles/components.css">
+  <link rel="stylesheet" href="src/styles/animations.css">
+
+  <style>
+    /* ── Loading Screen ── */
+    #loading-screen {
+      position: fixed;
+      inset: 0;
+      background: #FAF7F2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      gap: 1.5rem;
+      transition: opacity 0.4s ease;
+    }
+
+    #loading-screen.hide {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .loading-logo {
+      width: 5rem;
+      height: 5rem;
+      border-radius: 1.5rem;
+      background: #2C2219;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      box-shadow: 0 16px 40px rgba(44,34,25,0.2);
+      animation: float 2s ease-in-out infinite;
+    }
+
+    .loading-app-name {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 2rem;
+      font-weight: 700;
+      color: #2C2219;
+      letter-spacing: -0.02em;
+    }
+
+    .loading-tagline {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 0.875rem;
+      color: #6E6053;
+      text-align: center;
+      max-width: 220px;
+      line-height: 1.6;
+    }
+
+    .loading-dots {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .loading-dot {
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 50%;
+      background: #B88E4F;
+      animation: loadingDot 1.4s ease-in-out infinite;
+    }
+    .loading-dot:nth-child(2) { animation-delay: 0.2s; }
+    .loading-dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes loadingDot {
+      0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+
+    /* ── App Shell ── */
+    #app-shell {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Loading Screen -->
+  <div id="loading-screen">
+    <div class="loading-logo">🌿</div>
+    <div class="loading-app-name">غِراس</div>
+    <div class="loading-tagline">القليل المستمر أفضل من الكثير المنقطع</div>
+    <div class="loading-dots">
+      <div class="loading-dot"></div>
+      <div class="loading-dot"></div>
+      <div class="loading-dot"></div>
+    </div>
+  </div>
+
+  <!-- App Root -->
+  <div id="app">
+    <div id="app-shell"></div>
+  </div>
+
+  <!-- Bootstrap -->
+  <script type="module">
+    // Hide loading screen after fonts + module load
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        const loader = document.getElementById('loading-screen');
+        if (loader) {
+          loader.classList.add('hide');
+          setTimeout(() => loader.remove(), 400);
+        }
+      }, 600);
+    });
+
+    // Boot app
+    import('./src/main.js').catch(err => {
+      console.error('Ghiras: Failed to load app', err);
+      document.getElementById('loading-screen').innerHTML = `
+        <div style="text-align:center;padding:2rem;color:#2C2219">
+          <div style="font-size:3rem;margin-bottom:1rem">⚠️</div>
+          <h2 style="font-family:sans-serif;margin-bottom:0.5rem">خطأ في تحميل التطبيق</h2>
+          <p style="color:#6E6053;font-family:sans-serif;font-size:0.875rem">يرجى التأكد من تشغيل التطبيق عبر خادم محلي</p>
+          <code style="display:block;margin-top:1rem;background:#f0ece6;padding:0.75rem;border-radius:0.5rem;font-size:0.8rem;direction:ltr">
+            python -m http.server 5500<br>
+            # أو<br>
+            npx serve .
+          </code>
+        </div>
+      `;
+    });
+  </script>
+
+</body>
+</html>

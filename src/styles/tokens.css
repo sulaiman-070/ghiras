@@ -1,0 +1,127 @@
+/* ============================================================
+   GHIRAS — Design Tokens
+   Source of truth extracted from Stitch designs
+   ============================================================ */
+
+:root {
+  /* ── Brand Colors ── */
+  --color-bg:             #FAF7F2;
+  --color-bg-card:        #FFFDF9;
+  --color-bg-secondary:   #F6EFE9;
+  --color-bg-stone:       #EFE8DF;
+  --color-bg-sage:        #EAF0EA;
+
+  --color-primary:        #2C2219;
+  --color-primary-hover:  #3A2B20;
+  --color-primary-soft:   #3D2F23;
+
+  --color-gold:           #B88E4F;
+  --color-gold-light:     #F2E4CB;
+  --color-gold-pale:      #F9F3EA;
+
+  --color-sage:           #4A6B53;
+  --color-sage-light:     #D5E2D5;
+  --color-sage-pale:      #EAF0EA;
+
+  --color-muted:          #6E6053;
+  --color-border:         #E8DFD3;
+  --color-border-strong:  #D4C9BA;
+
+  /* ── Text Colors ── */
+  --text-primary:   #2C2219;
+  --text-secondary: #6E6053;
+  --text-gold:      #B88E4F;
+  --text-sage:      #4A6B53;
+  --text-muted:     #9C8A7A;
+  --text-inverted:  #FFFDF9;
+
+  /* ── Semantic ── */
+  --color-success: #4A6B53;
+  --color-warning: #B88E4F;
+  --color-error:   #BA1A1A;
+
+  /* ── Typography ── */
+  --font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-quran: 'Amiri Quran', 'Amiri', 'Scheherazade New', 'Traditional Arabic', serif;
+
+  /* ── Classical Mushaf Tokens ── */
+  --mushaf-paper-bg:        #FAF6EE;
+  --mushaf-paper-inner:     #FFFDF7;
+  --mushaf-paper-shadow:    rgba(100, 75, 45, 0.08);
+  --mushaf-gold-primary:    #B88E4F;
+  --mushaf-gold-border:     #C5A059;
+  --mushaf-gold-border-soft: rgba(197, 160, 89, 0.45);
+  --mushaf-gold-dark:       #8A6529;
+  --mushaf-gold-glow:       rgba(184, 142, 79, 0.18);
+  --mushaf-text-ink:        #1E1812;
+  --mushaf-header-bg:       linear-gradient(135deg, #F3E7D3 0%, #FAF6EE 50%, #F3E7D3 100%);
+
+  --font-size-xs:   0.6875rem; /* 11px */
+  --font-size-sm:   0.75rem;   /* 12px */
+  --font-size-base: 0.875rem;  /* 14px */
+  --font-size-md:   1rem;      /* 16px */
+  --font-size-lg:   1.125rem;  /* 18px */
+  --font-size-xl:   1.25rem;   /* 20px */
+  --font-size-2xl:  1.5rem;    /* 24px */
+  --font-size-3xl:  1.75rem;   /* 28px */
+
+  --font-weight-regular:   400;
+  --font-weight-medium:    500;
+  --font-weight-semibold:  600;
+  --font-weight-bold:      700;
+
+  --line-height-tight:   1.2;
+  --line-height-snug:    1.4;
+  --line-height-normal:  1.6;
+  --line-height-relaxed: 1.8;
+  --line-height-loose:   2.2;
+
+  /* ── Spacing (8px base) ── */
+  --space-1:  0.25rem;  /* 4px */
+  --space-2:  0.5rem;   /* 8px */
+  --space-3:  0.75rem;  /* 12px */
+  --space-4:  1rem;     /* 16px */
+  --space-5:  1.25rem;  /* 20px */
+  --space-6:  1.5rem;   /* 24px */
+  --space-8:  2rem;     /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+
+  /* ── Border Radius ── */
+  --radius-sm:   0.5rem;  /* 8px */
+  --radius-md:   0.75rem; /* 12px */
+  --radius-lg:   1rem;    /* 16px */
+  --radius-xl:   1.25rem; /* 20px */
+  --radius-2xl:  1.5rem;  /* 24px */
+  --radius-3xl:  2rem;    /* 32px */
+  --radius-full: 9999px;
+
+  /* ── Shadows ── */
+  --shadow-xs: 0 1px 4px rgba(44,34,25,0.04);
+  --shadow-sm: 0 2px 8px rgba(44,34,25,0.06);
+  --shadow-md: 0 6px 20px rgba(44,34,25,0.08);
+  --shadow-lg: 0 10px 30px rgba(44,34,25,0.10);
+  --shadow-card: 0 8px 24px -6px rgba(44,34,25,0.06);
+  --shadow-button: 0 10px 20px -4px rgba(44,34,25,0.30);
+  --shadow-nav: 0 -4px 16px rgba(44,34,25,0.05);
+
+  /* ── Z-index ── */
+  --z-base:    1;
+  --z-overlay: 10;
+  --z-nav:     50;
+  --z-header:  50;
+  --z-modal:   100;
+  --z-toast:   200;
+
+  /* ── Animation ── */
+  --transition-fast:   120ms ease;
+  --transition-normal: 220ms ease;
+  --transition-slow:   350ms ease;
+
+  /* ── Layout ── */
+  --header-height:    4rem;   /* 64px */
+  --nav-height:       4rem;   /* 64px */
+  --page-padding-x:  1.25rem; /* 20px */
+  --page-padding-top: calc(var(--header-height) + var(--space-4));
+  --page-padding-bottom: calc(var(--nav-height) + var(--space-4));
+}
