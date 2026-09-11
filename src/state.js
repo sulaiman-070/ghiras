@@ -155,6 +155,21 @@ function load() {
     }
     // Daily reset check
     checkDailyReset();
+
+    // Automatic migration to 'قرآن الفجر'
+    if (_state && Array.isArray(_state.habits)) {
+      const fajr = _state.habits.find(h => h.id === 'fajr-prayer');
+      if (fajr && (fajr.name === 'صلاة الفجر' || !fajr.extraGoal)) {
+        fajr.name = 'قرآن الفجر';
+        fajr.icon = 'wb_twilight';
+        fajr.iconBg = '#EAF0EA';
+        fajr.iconColor = '#4A6B53';
+        fajr.description = '﴿إِنَّ قُرۡءَانَ ٱلۡفَجۡرِ كَانَ مَشۡهُودٗا﴾ • صفحة مباركة';
+        fajr.minGoal = { value: 1, unit: 'page', label: 'صفحة واحدة', arabicNum: '١' };
+        fajr.extraGoal = { value: 4, unit: 'pages', label: '٤ صفحات (نصف حزب)', arabicNum: '٤' };
+        fajr.category = 'quran';
+      }
+    }
   } catch (e) {
     console.warn('Ghiras: state load failed, using defaults', e);
     _state = createDefaultState();

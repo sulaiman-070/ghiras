@@ -45,7 +45,7 @@ const STEPS = [
 
 const CATEGORIES = [
   { id: 'quran',   label: 'قراءة القرآن',  emoji: '📖' },
-  { id: 'prayer',  label: 'صلاة الفجر',    emoji: '🕌' },
+  { id: 'prayer',  label: 'قرآن الفجر',    emoji: '🌅' },
   { id: 'athkar',  label: 'الأذكار',        emoji: '🤲' },
 ];
 
