@@ -1847,35 +1847,24 @@ body.mushaf-focus-active .mushaf-exit-focus-btn {
 
 /* ═════════════════════════════════════════════════
 /* ═════════════════════════════════════════════════
+/* ═════════════════════════════════════════════════
    FEATURE 1: SOUL REMEDY COMPASS (بوصلة القلب وصيدلية الروح)
-   Zero-Scroll Responsive Grid - All 7 remedies visible at a glance
+   Zero-Scroll Responsive 3x3 Symmetrical Matrix (9 Remedies)
    ═════════════════════════════════════════════════ */
 .soul-remedy-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   width: 100%;
-}
-
-@media (min-width: 640px) {
-  .soul-remedy-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-@media (min-width: 960px) {
-  .soul-remedy-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
 }
 
 .soul-remedy-tile {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   background: var(--color-bg-card, #FFFFFF);
   border: 1px solid rgba(197, 160, 89, 0.32);
-  padding: 8px 12px;
+  padding: 9px 10px;
   border-radius: var(--radius-xl);
   cursor: pointer;
   text-align: right;
@@ -1909,7 +1898,7 @@ body.mushaf-focus-active .mushaf-exit-focus-btn {
 }
 
 .soul-remedy-tile__emotion {
-  font-size: 0.825rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--text-primary);
   white-space: nowrap;
@@ -1918,7 +1907,7 @@ body.mushaf-focus-active .mushaf-exit-focus-btn {
 }
 
 .soul-remedy-tile__tag {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   font-weight: 600;
   color: var(--color-gold-dark, #8C6D38);
   white-space: nowrap;
@@ -1926,30 +1915,25 @@ body.mushaf-focus-active .mushaf-exit-focus-btn {
   text-overflow: ellipsis;
 }
 
-/* 7th item spans full width on 2-column mobile layout */
-.soul-remedy-tile--featured {
-  grid-column: span 2;
-  justify-content: center;
-  background: linear-gradient(135deg, rgba(197, 160, 89, 0.09) 0%, rgba(74, 107, 83, 0.09) 100%);
-  border-color: rgba(197, 160, 89, 0.45);
-}
-
-.soul-remedy-tile--featured .soul-remedy-tile__meta {
-  flex: 0 1 auto;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-}
-
-@media (min-width: 640px) {
-  .soul-remedy-tile--featured {
-    grid-column: span 1;
-    justify-content: flex-start;
+/* Compact adaptation on small mobile screens */
+@media (max-width: 520px) {
+  .soul-remedy-grid {
+    gap: 6px;
   }
-  .soul-remedy-tile--featured .soul-remedy-tile__meta {
+  .soul-remedy-tile {
+    padding: 8px 4px;
     flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
+    text-align: center;
+    gap: 4px;
+  }
+  .soul-remedy-tile__emoji {
+    font-size: 1.4rem;
+  }
+  .soul-remedy-tile__emotion {
+    font-size: 0.72rem;
+  }
+  .soul-remedy-tile__tag {
+    font-size: 0.6rem;
   }
 }
 
