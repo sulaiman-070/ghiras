@@ -87,6 +87,47 @@ function createDefaultState() {
       quranFontSize: 'large',
       showStreak: true,
     },
+    reminders: [
+      {
+        id: 'rem_mulk',
+        title: 'سورة الملك قبل النوم',
+        type: 'surah',
+        surahNumber: 67,
+        surahName: 'الملك',
+        page: 562,
+        time: '21:30',
+        enabled: true,
+        days: [0, 1, 2, 3, 4, 5, 6],
+        repeatType: 'daily',
+        lastTriggeredDate: ''
+      },
+      {
+        id: 'rem_kahf',
+        title: 'سورة الكهف المباركة',
+        type: 'surah',
+        surahNumber: 18,
+        surahName: 'الكهف',
+        page: 293,
+        time: '09:00',
+        enabled: true,
+        days: [5],
+        repeatType: 'friday',
+        lastTriggeredDate: ''
+      },
+      {
+        id: 'rem_wird',
+        title: 'الورد القرآني اليومي',
+        type: 'wird',
+        surahNumber: 0,
+        surahName: 'الورد القرآني',
+        page: 1,
+        time: '06:00',
+        enabled: true,
+        days: [0, 1, 2, 3, 4, 5, 6],
+        repeatType: 'daily',
+        lastTriggeredDate: ''
+      }
+    ],
     ui: {
       activeTab: 'home',
       lastActiveDate: getTodayKey(),
@@ -495,6 +536,112 @@ function deepMerge(defaults, saved) {
   return result;
 }
 
+// ── Reminders & Alarms State ──────────────────────────────
+function getReminders() {
+  const s = get();
+  if (!s.reminders) {
+    s.reminders = [
+      {
+        id: 'rem_mulk',
+        title: 'سورة الملك قبل النوم',
+        type: 'surah',
+        surahNumber: 67,
+        surahName: 'الملك',
+        page: 562,
+        time: '21:30',
+        enabled: true,
+        days: [0, 1, 2, 3, 4, 5, 6],
+        repeatType: 'daily',
+        lastTriggeredDate: ''
+      },
+      {
+        id: 'rem_kahf',
+        title: 'سورة الكهف المباركة',
+        type: 'surah',
+        surahNumber: 18,
+        surahName: 'الكهف',
+        page: 293,
+        time: '09:00',
+        enabled: true,
+        days: [5],
+        repeatType: 'friday',
+        lastTriggeredDate: ''
+      },
+      {
+        id: 'rem_wird',
+        title: 'الورد القرآني اليومي',
+        type: 'wird',
+        surahNumber: 0,
+        surahName: 'الورد القرآني',
+        page: 1,
+        time: '06:00',
+        enabled: true,
+        days: [0, 1, 2, 3, 4, 5, 6],
+        repeatType: 'daily',
+        lastTriggeredDate: ''
+      }
+    ];
+    save();
+  }
+  return s.reminders;
+}
+
+function addReminder(rem) {
+  set(s => {
+    if (!s.reminders) s.reminders = [];
+    const newRem = {
+      id: 'rem_' + Date.now(),
+      title: rem.title || 'تذكير قرآني',
+      type: rem.type || 'surah',
+      surahNumber: parseInt(rem.surahNumber, 10) || 0,
+      surahName: rem.surahName || '',
+      page: parseInt(rem.page, 10) || 1,
+      time: rem.time || '20:00',
+      enabled: true,
+      days: rem.days || [0, 1, 2, 3, 4, 5, 6],
+      repeatType: rem.repeatType || 'daily',
+      lastTriggeredDate: ''
+    };
+    s.reminders.push(newRem);
+  });
+}
+
+function updateReminder(id, updates) {
+  set(s => {
+    if (!s.reminders) return;
+    const item = s.reminders.find(r => r.id === id);
+    if (item) Object.assign(item, updates);
+  });
+}
+
+function deleteReminder(id) {
+  set(s => {
+    if (!s.reminders) return;
+    s.reminders = s.reminders.filter(r => r.id !== id);
+  });
+}
+
+function toggleReminder(id) {
+  let nowEnabled = false;
+  set(s => {
+    if (!s.reminders) return;
+    const item = s.reminders.find(r => r.id === id);
+    if (item) {
+      item.enabled = !item.enabled;
+      nowEnabled = item.enabled;
+    }
+  });
+  return nowEnabled;
+}
+
+function markReminderTriggered(id, dateStr) {
+  set(s => {
+    if (!s.reminders) return;
+    const item = s.reminders.find(r => r.id === id);
+    if (item) item.lastTriggeredDate = dateStr;
+  });
+}
+
 // ── Reset (Dev) ──────────────────────────────────────────────
 function resetState() {
   localStorage.removeItem(STORAGE_KEY);
@@ -517,6 +664,13 @@ export const State = {
   setUserName,
   updateSettings,
   setActiveTab,
+  // Reminders
+  getReminders,
+  addReminder,
+  updateReminder,
+  deleteReminder,
+  toggleReminder,
+  markReminderTriggered,
   // Computed
   getTodayGreeting,
   getHijriDate,

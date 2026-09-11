@@ -149,15 +149,15 @@ export function renderProfile() {
         </label>
       </div>
 
-      <!-- Reminder Time -->
-      <div class="settings-row" onclick="App.openReminderTime()">
+      <!-- Smart Quran Reminders & Alarms -->
+      <div class="settings-row" onclick="App.openRemindersModal()">
         <div class="settings-row__left">
           <div class="settings-row__icon" style="background:var(--color-bg-sage)">
-            <span class="material-symbols-outlined icon-fill" style="font-size:1.125rem;color:var(--color-sage)">schedule</span>
+            <span class="material-symbols-outlined icon-fill" style="font-size:1.125rem;color:var(--color-sage)">alarm</span>
           </div>
           <div>
-            <div class="settings-row__label">وقت التذكير</div>
-            <div class="settings-row__desc">${s.settings.reminderTime}</div>
+            <div class="settings-row__label">منبّه القرآن والتذكيرات الذكية</div>
+            <div class="settings-row__desc">${(s.reminders || []).filter(r => r.enabled).length} منبهات مفعلة • ضبط وتخصيص الأوقات</div>
           </div>
         </div>
         <span class="material-symbols-outlined rtl-flip" style="color:var(--text-muted)">chevron_right</span>

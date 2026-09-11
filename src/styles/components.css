@@ -1647,3 +1647,66 @@ body.mushaf-focus-active .mushaf-exit-focus-btn {
   color: #FFF;
 }
 
+/* ════════════════════════════════════════════
+   QURAN ALARMS & REMINDERS STYLES
+════════════════════════════════════════════ */
+@keyframes ringBell {
+  0%, 100% { transform: rotate(0); }
+  10% { transform: rotate(16deg) scale(1.08); }
+  20% { transform: rotate(-16deg) scale(1.08); }
+  30% { transform: rotate(12deg); }
+  40% { transform: rotate(-12deg); }
+  50% { transform: rotate(8deg); }
+  60% { transform: rotate(-8deg); }
+  70% { transform: rotate(0); }
+}
+
+.alarm-bell-ring {
+  display: inline-block;
+  animation: ringBell 1.6s infinite ease-in-out;
+  transform-origin: top center;
+}
+
+.reminder-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  transition: all 0.2s ease;
+  margin-bottom: var(--space-2);
+}
+
+.reminder-card:hover {
+  border-color: var(--color-gold);
+  background: var(--color-bg-card);
+}
+
+.reminder-card.disabled {
+  opacity: 0.6;
+}
+
+.reminder-card__time {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.reminder-card__title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.reminder-card__badge {
+  font-size: 0.7rem;
+  color: var(--color-gold);
+  font-weight: 600;
+}
+

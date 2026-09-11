@@ -26,6 +26,12 @@ import {
   getPrevAyah
 } from './data/quran.js';
 import { getGardenStage }   from './data/habits.js';
+import {
+  playAlarmChime,
+  requestNotificationPermission,
+  sendAlarmNotification,
+  startAlarmClock
+} from './data/alarm.js';
 
 // ── Screens Config ─────────────────────────────────────────
 const SCREENS = {
@@ -69,6 +75,9 @@ function boot() {
     updateHeader();
     updateNavBadges();
   });
+
+  // Start Smart Quran Alarm Clock (checks every 15s)
+  startAlarmClock(() => State.getReminders(), handleAlarmTrigger);
 }
 
 // ── Onboarding ─────────────────────────────────────────────
@@ -1143,19 +1152,368 @@ function updateSetting(key, value) {
   State.updateSettings({ [key]: value });
 }
 
-function openReminderTime() {
+// ── Smart Quran Alarms & Reminders Engine ───────────────────
+
+function handleAlarmTrigger(reminder, todayKey) {
+  State.markReminderTriggered(reminder.id, todayKey);
+  playAlarmChime();
+  sendAlarmNotification(reminder);
+  showAlarmTriggerModal(reminder);
+}
+
+function onAlarmNotificationClick(reminder) {
+  startReadingFromAlarm(reminder.id);
+}
+
+function formatReminderTime(t) {
+  if (!t) return '';
+  const parts = t.split(':');
+  let h = parseInt(parts[0], 10);
+  const m = parts[1] || '00';
+  const ampm = h >= 12 ? 'م' : 'ص';
+  h = h % 12;
+  if (h === 0) h = 12;
+  return `${State.toArabicNum(h)}:${State.toArabicNum(m)} ${ampm}`;
+}
+
+function openRemindersModal() {
+  const reminders = State.getReminders();
+  const n = State.toArabicNum;
+  const hasNotifPerm = typeof Notification !== 'undefined' && Notification.permission === 'granted';
+
   openModal(`
-    <h3 style="font-size:var(--font-size-xl);font-weight:700;margin-bottom:var(--space-4)">وقت التذكير</h3>
-    <input type="time" value="${State.get().settings.reminderTime}" class="form-input" id="reminder-time-input" style="margin-bottom:var(--space-4)">
-    <button class="btn btn--primary" onclick="App.saveReminderTime()">حفظ</button>
+    <div style="padding-bottom:var(--space-2)">
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3)">
+        <div style="display:flex;align-items:center;gap:var(--space-2)">
+          <span class="material-symbols-outlined icon-fill" style="color:var(--color-gold);font-size:1.6rem">alarm</span>
+          <h3 style="font-size:var(--font-size-xl);font-weight:700;color:var(--text-primary);margin:0">منبّه وتذكيرات القرآن الكريم</h3>
+        </div>
+        <button onclick="App.closeModal()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <p style="font-size:var(--font-size-xs);color:var(--text-secondary);margin-bottom:var(--space-3);line-height:1.7">
+        تنبيهات صوتية وإشعارات لطيفة تعينك على قراءة سورك المفضلة كالملك والكهف وملازمة وردك اليومي.
+      </p>
+
+      <!-- System Notification Banner if not granted -->
+      ${!hasNotifPerm ? `
+      <div style="background:var(--color-gold-light);border:1px solid var(--color-gold);border-radius:var(--radius-xl);padding:var(--space-3);margin-bottom:var(--space-3);display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="material-symbols-outlined" style="color:var(--color-gold);font-size:1.3rem">notifications_active</span>
+          <span style="font-size:0.75rem;color:var(--mushaf-gold-dark);font-weight:600">فعّل إشعارات المتصفح لتصلك حتى والتطبيق مغلق</span>
+        </div>
+        <button class="btn btn--sm" style="background:var(--color-gold);color:#1a0f00;font-size:0.75rem;padding:4px 8px;font-weight:700;border:none" onclick="App.requestAlarmNotificationPermission()">
+          تفعيل
+        </button>
+      </div>` : ''}
+
+      <!-- Reminders List -->
+      <div style="display:flex;flex-direction:column;gap:var(--space-2);max-height:48vh;overflow-y:auto;padding:0 2px;margin-bottom:var(--space-4)">
+        ${reminders.length === 0 ? `
+          <div style="text-align:center;padding:var(--space-6);color:var(--text-muted)">
+            لا يوجد منبهات حالياً. اضغط "إضافة منبه جديد" للبدء.
+          </div>
+        ` : reminders.map(rem => {
+          const repLabel = rem.repeatType === 'friday' ? 'يوم الجمعة فقط' : (rem.repeatType === 'weekdays' ? 'أيام الأسبوع' : 'يومياً');
+          const targetDesc = rem.type === 'surah' ? `سورة ${rem.surahName} (ص ${n(rem.page || 1)})` : (rem.type === 'wird' ? 'متابعة الورد القرآني' : 'الأذكار');
+          return `
+            <div class="reminder-card ${rem.enabled ? '' : 'disabled'}" id="rem-card-${rem.id}">
+              <div style="display:flex;align-items:center;gap:var(--space-3)">
+                <div style="text-align:center;min-width:70px">
+                  <div class="reminder-card__time">${formatReminderTime(rem.time)}</div>
+                  <div class="reminder-card__badge">${repLabel}</div>
+                </div>
+                <div>
+                  <div class="reminder-card__title">${rem.title}</div>
+                  <div style="font-size:0.75rem;color:var(--text-muted)">${targetDesc}</div>
+                </div>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:var(--space-2)">
+                <label class="toggle" style="margin:0">
+                  <input type="checkbox" ${rem.enabled ? 'checked' : ''} onchange="App.toggleReminderItem('${rem.id}')">
+                  <div class="toggle__track"></div>
+                  <div class="toggle__thumb"></div>
+                </label>
+                <button onclick="App.deleteReminderItem('${rem.id}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;display:flex" title="حذف المنبه">
+                  <span class="material-symbols-outlined" style="font-size:1.2rem">delete</span>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <!-- Action Buttons -->
+      <div style="display:flex;flex-direction:column;gap:var(--space-2)">
+        <button class="btn btn--primary" onclick="App.openAddReminderModal()" style="width:100%">
+          <span class="material-symbols-outlined">add_alarm</span>
+          <span>إضافة منبّه جديد</span>
+        </button>
+
+        <div style="display:flex;gap:var(--space-2)">
+          <button class="btn btn--secondary" onclick="App.testAlarmSound()" style="flex:1;font-size:0.8rem">
+            <span class="material-symbols-outlined">notifications</span>
+            <span>تجربة نغمة التنبيه</span>
+          </button>
+          <button class="btn btn--secondary" onclick="App.closeModal()" style="width:auto;padding:0 var(--space-4)">
+            إغلاق
+          </button>
+        </div>
+      </div>
+    </div>
   `);
 }
 
-function saveReminderTime() {
-  const v = document.getElementById('reminder-time-input')?.value;
-  if (v) State.updateSettings({ reminderTime: v });
+function openAddReminderModal() {
+  const surahs = getAllSurahs();
+  const now = new Date();
+  const defaultTime = `${String(now.getHours()).padStart(2, '0')}:00`;
+
+  openModal(`
+    <div style="padding-bottom:var(--space-2)">
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3)">
+        <div style="display:flex;align-items:center;gap:var(--space-2)">
+          <span class="material-symbols-outlined icon-fill" style="color:var(--color-gold);font-size:1.5rem">add_alarm</span>
+          <h3 style="font-size:var(--font-size-xl);font-weight:700;color:var(--text-primary);margin:0">إضافة منبّه قرآني جديد</h3>
+        </div>
+        <button onclick="App.openRemindersModal()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px">
+          <span class="material-symbols-outlined">arrow_forward</span>
+        </button>
+      </div>
+
+      <!-- Form -->
+      <div style="display:flex;flex-direction:column;gap:var(--space-3);margin-bottom:var(--space-4)">
+        <!-- 1. Time Picker -->
+        <div>
+          <label style="font-size:var(--font-size-xs);font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px">
+            وقت التنبيه:
+          </label>
+          <input type="time" id="new-rem-time" value="${defaultTime}" class="form-input" style="font-size:1.2rem;font-weight:700;text-align:center">
+        </div>
+
+        <!-- 2. Target Preset Selector -->
+        <div>
+          <label style="font-size:var(--font-size-xs);font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px">
+            ماذا ترغب بالقراءة عند التنبيه؟
+          </label>
+          <select id="new-rem-target" class="form-input" onchange="App.onReminderTargetChange(this.value)" style="font-size:0.9rem">
+            <optgroup label="سور مفضلة مستحبة">
+              <option value="surah:67:سورة الملك قبل النوم" selected>🌙 سورة الملك (المانعة من عذاب القبر)</option>
+              <option value="surah:18:سورة الكهف المباركة">🕌 سورة الكهف (نور بين الجمعتين)</option>
+              <option value="surah:36:سورة يس المباركة">📖 سورة يس</option>
+              <option value="surah:2:سورة البقرة المباركة">🛡️ سورة البقرة (بركة وطاردة للشياطين)</option>
+              <option value="surah:56:سورة الواقعة">🌾 سورة الواقعة</option>
+              <option value="surah:55:سورة الرحمن">🌸 سورة الرحمن</option>
+            </optgroup>
+            <optgroup label="الورد والأذكار">
+              <option value="wird:0:الورد القرآني اليومي">📖 الورد القرآني اليومي (متابعة القراءة من حيث توقفت)</option>
+              <option value="athkar_m:0:أذكار الصباح المباركة">🌅 أذكار الصباح وحصن المسلم</option>
+              <option value="athkar_e:0:أذكار المساء المباركة">🌇 أذكار المساء وحصن المسلم</option>
+            </optgroup>
+            <optgroup label="جميع سور القرآن الكريم (١١٤ سورة)">
+              ${surahs.map(s => `
+                <option value="surah:${s.number}:سورة ${s.name}">سورة ${s.name} (${s.type} • ص ${s.page})</option>
+              `).join('')}
+            </optgroup>
+          </select>
+        </div>
+
+        <!-- 3. Title input -->
+        <div>
+          <label style="font-size:var(--font-size-xs);font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px">
+            اسم التذكير (يظهر في الإشعار):
+          </label>
+          <input type="text" id="new-rem-title" value="سورة الملك قبل النوم" class="form-input" placeholder="عنوان التذكير...">
+        </div>
+
+        <!-- 4. Repeat options -->
+        <div>
+          <label style="font-size:var(--font-size-xs);font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px">
+            تكرار التنبيه:
+          </label>
+          <select id="new-rem-repeat" class="form-input" style="font-size:0.9rem">
+            <option value="daily" selected>يومياً (كل يوم)</option>
+            <option value="friday">يوم الجمعة فقط (لسورة الكهف)</option>
+            <option value="weekdays">أيام الأسبوع (الأحد - الخميس)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Submit & Cancel -->
+      <div style="display:flex;gap:var(--space-2)">
+        <button class="btn btn--primary" onclick="App.saveNewReminder()" style="flex:1">
+          <span class="material-symbols-outlined">save</span>
+          <span>حفظ المنبّه</span>
+        </button>
+        <button class="btn btn--secondary" onclick="App.openRemindersModal()" style="width:auto;padding:0 var(--space-4)">
+          رجوع
+        </button>
+      </div>
+    </div>
+  `);
+}
+
+function onReminderTargetChange(val) {
+  const parts = (val || '').split(':');
+  const title = parts[2] || '';
+  const titleInput = document.getElementById('new-rem-title');
+  const repeatSelect = document.getElementById('new-rem-repeat');
+  if (titleInput && title) {
+    titleInput.value = title;
+  }
+  if (parts[1] === '18' && repeatSelect) {
+    repeatSelect.value = 'friday';
+  } else if (repeatSelect && repeatSelect.value === 'friday') {
+    repeatSelect.value = 'daily';
+  }
+}
+
+function saveNewReminder() {
+  const time = document.getElementById('new-rem-time')?.value || '21:00';
+  const targetVal = document.getElementById('new-rem-target')?.value || 'surah:67:سورة الملك';
+  const title = document.getElementById('new-rem-title')?.value || 'تذكير قرآني';
+  const repeatType = document.getElementById('new-rem-repeat')?.value || 'daily';
+
+  const parts = targetVal.split(':');
+  const type = parts[0];
+  const num = parseInt(parts[1], 10) || 0;
+  const surahName = (type === 'surah' && num > 0) ? (getSurah(num)?.name || '') : '';
+  const page = (type === 'surah' && num > 0) ? (getPageOfSurah(num) || 1) : 1;
+
+  let days = [0, 1, 2, 3, 4, 5, 6];
+  if (repeatType === 'friday') days = [5];
+  else if (repeatType === 'weekdays') days = [0, 1, 2, 3, 4];
+
+  State.addReminder({
+    title,
+    type,
+    surahNumber: num,
+    surahName,
+    page,
+    time,
+    days,
+    repeatType
+  });
+
+  State.showToast(`⏰ تم ضبط منبّه: ${title} عند ${formatReminderTime(time)}`);
+  openRemindersModal();
+}
+
+function toggleReminderItem(id) {
+  const enabled = State.toggleReminder(id);
+  const card = document.getElementById(`rem-card-${id}`);
+  if (card) {
+    if (enabled) card.classList.remove('disabled');
+    else card.classList.add('disabled');
+  }
+  State.showToast(enabled ? '🔔 تم تفعيل المنبه' : '🔕 تم إيقاف المنبه');
+}
+
+function deleteReminderItem(id) {
+  State.deleteReminder(id);
+  State.showToast('🗑️ تم حذف المنبه');
+  openRemindersModal();
+}
+
+function testAlarmSound() {
+  playAlarmChime();
+  State.showToast('🔔 استمع لنغمة التنبيه الهادئة');
+}
+
+async function requestAlarmNotificationPermission() {
+  const granted = await requestNotificationPermission();
+  if (granted) {
+    State.showToast('✅ تم تفعيل إشعارات التنبيه بنجاح!');
+  } else {
+    State.showToast('⚠️ يرجى السماح بالإشعارات من إعدادات المتصفح');
+  }
+  openRemindersModal();
+}
+
+function showAlarmTriggerModal(reminder) {
+  openModal(`
+    <div style="text-align:center;padding:var(--space-3)">
+      <div class="alarm-bell-ring" style="font-size:3.5rem;margin-bottom:var(--space-2)">🔔</div>
+      <div class="chip chip--gold" style="margin-bottom:var(--space-3)">
+        <span>⏰ حان الآن موعدك مع كتاب الله</span>
+      </div>
+
+      <h2 style="font-size:var(--font-size-2xl);font-weight:700;color:var(--text-primary);margin-bottom:var(--space-2)">
+        ${reminder.title}
+      </h2>
+
+      <p style="font-size:var(--font-size-sm);color:var(--text-secondary);line-height:1.8;margin-bottom:var(--space-4);max-width:320px;margin-left:auto;margin-right:auto">
+        ﴿ أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ ﴾<br>
+        استقطع بضع دقائق من يومك وانعم بنور الآيات المباركة.
+      </p>
+
+      <div style="display:flex;flex-direction:column;gap:var(--space-2)">
+        <button class="btn btn--primary btn--large" onclick="App.startReadingFromAlarm('${reminder.id}')" style="width:100%">
+          <span class="material-symbols-outlined icon-fill">menu_book</span>
+          <span>ابدأ القراءة الآن</span>
+        </button>
+
+        <button class="btn btn--secondary" onclick="App.snoozeAlarm('${reminder.id}')" style="width:100%">
+          <span class="material-symbols-outlined">snooze</span>
+          <span>تأجيل ١٠ دقائق</span>
+        </button>
+
+        <button class="btn--ghost btn" onclick="App.closeModal()">
+          إغلاق التنبيه
+        </button>
+      </div>
+    </div>
+  `);
+}
+
+function startReadingFromAlarm(reminderId) {
   closeModal();
-  State.showToast('✅ تم حفظ وقت التذكير');
+  const reminders = State.getReminders();
+  const rem = reminders.find(r => r.id === reminderId);
+  if (!rem) {
+    navigate('wird');
+    return;
+  }
+
+  if (rem.type === 'surah' && rem.surahNumber > 0) {
+    const page = rem.page || getPageOfSurah(rem.surahNumber) || 1;
+    goToPage(page);
+    State.showToast(`📖 بارك الله في وقتك — بدأت سورة ${rem.surahName}`);
+  } else if (rem.type === 'wird') {
+    navigate('wird');
+    State.showToast('📖 بارك الله في وردك القرآني اليومي');
+  } else if (rem.type.startsWith('athkar')) {
+    navigate('wird');
+    switchWirdTab('athkar');
+    State.showToast('🤲 أذكار مباركة وحصن لك');
+  } else {
+    navigate('wird');
+  }
+}
+
+function snoozeAlarm(reminderId) {
+  closeModal();
+  const now = new Date();
+  now.setMinutes(now.getMinutes() + 10);
+  const h = String(now.getHours()).padStart(2, '0');
+  const m = String(now.getMinutes()).padStart(2, '0');
+  const snoozedTime = `${h}:${m}`;
+
+  State.addReminder({
+    title: 'تأجيل التنبيه القرآني',
+    type: 'wird',
+    surahNumber: 0,
+    time: snoozedTime,
+    repeatType: 'daily',
+    days: [0, 1, 2, 3, 4, 5, 6]
+  });
+
+  State.showToast(`⏳ تم تأجيل التنبيه لمدة ١٠ دقائق (عند ${formatReminderTime(snoozedTime)})`);
 }
 
 function openFontSize() {
@@ -1307,10 +1665,20 @@ window.App = {
   inviteFriend,
   createGroup,
   openGroup,
-  // Settings
+  // Settings & Reminders
   updateSetting,
-  openReminderTime,
-  saveReminderTime,
+  openRemindersModal,
+  openAddReminderModal,
+  onReminderTargetChange,
+  saveNewReminder,
+  toggleReminderItem,
+  deleteReminderItem,
+  testAlarmSound,
+  requestAlarmNotificationPermission,
+  showAlarmTriggerModal,
+  startReadingFromAlarm,
+  snoozeAlarm,
+  onAlarmNotificationClick,
   openFontSize,
   setFontSize,
   confirmReset,

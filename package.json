@@ -2,6 +2,7 @@
   "name": "ghiras",
   "version": "1.0.0",
   "description": "غِراس — تطبيق لبناء عادات روحية متدرجة ومستمرة",
+  "type": "module",
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js"

@@ -106,7 +106,29 @@ export function renderHome() {
     </div>
   </section>
 
-  <!-- ④ Active Habits -->
+  <!-- ④ Smart Quran Alarms & Reminders Card -->
+  <section class="card animate-fadeInUp" style="animation-delay:100ms;background:linear-gradient(135deg, rgba(232,195,113,0.12) 0%, rgba(74,107,83,0.08) 100%);border:1px solid rgba(197,160,89,0.35);display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);cursor:pointer;padding:var(--space-3) var(--space-4)" onclick="App.openRemindersModal()">
+    <div style="display:flex;align-items:center;gap:var(--space-3)">
+      <div style="width:2.6rem;height:2.6rem;border-radius:var(--radius-xl);background:var(--color-gold-light);border:1.5px solid var(--color-gold);display:flex;align-items:center;justify-content:center;color:var(--mushaf-gold-dark);flex-shrink:0">
+        <span class="material-symbols-outlined" style="font-size:1.4rem">alarm</span>
+      </div>
+      <div>
+        <div style="font-size:var(--font-size-base);font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px">
+          <span>منبّه وتذكيرات القرآن</span>
+          <span class="chip chip--gold" style="font-size:0.65rem;padding:2px 6px">${n((s.reminders || []).filter(r => r.enabled).length)} منبهات</span>
+        </div>
+        <p style="font-size:var(--font-size-xs);color:var(--text-secondary);margin-top:2px">
+          اضبط أوقات تذكير لقراءة سورة الملك، الكهف، أو وردك اليومي
+        </p>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:2px;color:var(--color-gold);font-size:0.8rem;font-weight:700;flex-shrink:0">
+      <span>ضبط</span>
+      <span class="material-symbols-outlined rtl-flip" style="font-size:1.1rem">chevron_left</span>
+    </div>
+  </section>
+
+  <!-- ⑤ Active Habits -->
   ${activeHabits.length > 0 ? `
   <section class="animate-fadeInUp" style="animation-delay:120ms">
     <div class="section-header">
