@@ -44,9 +44,9 @@ const STEPS = [
 ];
 
 const CATEGORIES = [
-  { id: 'quran',   label: 'قراءة القرآن',  emoji: '📖' },
-  { id: 'prayer',  label: 'قرآن الفجر',    emoji: '🌅' },
-  { id: 'athkar',  label: 'الأذكار',        emoji: '🤲' },
+  { id: 'quran',       label: 'قراءة القرآن',  emoji: '📖' },
+  { id: 'reflection',  label: 'تدبر آية',      emoji: '💡' },
+  { id: 'athkar',      label: 'الأذكار',        emoji: '🤲' },
 ];
 
 export function renderOnboarding() {

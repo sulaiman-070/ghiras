@@ -156,18 +156,19 @@ function load() {
     // Daily reset check
     checkDailyReset();
 
-    // Automatic migration to 'قرآن الفجر'
+    // Automatic migration to 'تدبر آية'
     if (_state && Array.isArray(_state.habits)) {
-      const fajr = _state.habits.find(h => h.id === 'fajr-prayer');
-      if (fajr && (fajr.name === 'صلاة الفجر' || !fajr.extraGoal)) {
-        fajr.name = 'قرآن الفجر';
-        fajr.icon = 'wb_twilight';
-        fajr.iconBg = '#EAF0EA';
-        fajr.iconColor = '#4A6B53';
-        fajr.description = '﴿إِنَّ قُرۡءَانَ ٱلۡفَجۡرِ كَانَ مَشۡهُودٗا﴾ • صفحة مباركة';
-        fajr.minGoal = { value: 1, unit: 'page', label: 'صفحة واحدة', arabicNum: '١' };
-        fajr.extraGoal = { value: 4, unit: 'pages', label: '٤ صفحات (نصف حزب)', arabicNum: '٤' };
-        fajr.category = 'quran';
+      const targetHabit = _state.habits.find(h => h.id === 'fajr-prayer' || h.id === 'ayah-reflection');
+      if (targetHabit && (targetHabit.name === 'صلاة الفجر' || targetHabit.name === 'قرآن الفجر' || targetHabit.id === 'fajr-prayer')) {
+        targetHabit.id = 'ayah-reflection';
+        targetHabit.name = 'تدبر آية';
+        targetHabit.icon = 'auto_stories';
+        targetHabit.iconBg = '#F2E4CB';
+        targetHabit.iconColor = '#B88E4F';
+        targetHabit.description = 'تأمل معنى آية كريمة وقراءة تفسيرها الميسر';
+        targetHabit.minGoal = { value: 1, unit: 'ayah', label: 'آية واحدة', arabicNum: '١' };
+        targetHabit.extraGoal = { value: 3, unit: 'ayahs', label: '٣ آيات بخواطرها', arabicNum: '٣' };
+        targetHabit.category = 'quran';
       }
     }
   } catch (e) {
@@ -365,13 +366,13 @@ function getStats(state) {
   const longestStreak = Math.max(...state.habits.map(h => h.longestStreak), 0);
   const totalCompletions = state.habits.reduce((s, h) => s + h.totalCompletions, 0);
   const quranHabit = state.habits.find(h => h.id === 'quran-reading');
-  const fajrHabit = state.habits.find(h => h.id === 'fajr-prayer');
+  const reflectionHabit = state.habits.find(h => h.id === 'ayah-reflection' || h.id === 'fajr-prayer');
 
   return {
     longestStreak,
     totalCompletions,
     quranStreak: quranHabit?.currentStreak || 0,
-    fajrCount: fajrHabit?.totalCompletions || 0,
+    fajrCount: reflectionHabit?.totalCompletions || 0,
     gardenStreak: state.garden.streakDays,
   };
 }
