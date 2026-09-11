@@ -4,10 +4,12 @@
 
 import { State } from '../state.js';
 import { GARDEN_STAGES, getGardenStage } from '../data/habits.js';
+import { getReciter } from '../data/quran.js';
 
 export function renderProfile() {
   const s = State.get();
   const n = State.toArabicNum;
+  const activeReciter = getReciter(s.settings.reciterId);
   const stage = getGardenStage(s.garden.streakDays);
   const xpPct = Math.round((s.user.xp / s.user.xpToNextLevel) * 100);
   const joinDate = new Date(s.user.joinDate);
@@ -158,6 +160,20 @@ export function renderProfile() {
           <div>
             <div class="settings-row__label">منبّه القرآن والتذكيرات الذكية</div>
             <div class="settings-row__desc">${(s.reminders || []).filter(r => r.enabled).length} منبهات مفعلة • ضبط وتخصيص الأوقات</div>
+          </div>
+        </div>
+        <span class="material-symbols-outlined rtl-flip" style="color:var(--text-muted)">chevron_right</span>
+      </div>
+
+      <!-- Quran Reciter Selection -->
+      <div class="settings-row" onclick="App.openReciterModal()">
+        <div class="settings-row__left">
+          <div class="settings-row__icon" style="background:rgba(197, 160, 89, 0.15)">
+            <span class="material-symbols-outlined icon-fill" style="font-size:1.125rem;color:var(--color-gold)">record_voice_over</span>
+          </div>
+          <div>
+            <div class="settings-row__label">القارئ المفضل لتلاوة القرآن</div>
+            <div class="settings-row__desc">الشيخ ${activeReciter.name} (${activeReciter.badge})</div>
           </div>
         </div>
         <span class="material-symbols-outlined rtl-flip" style="color:var(--text-muted)">chevron_right</span>

@@ -432,5 +432,135 @@ function buildFallbackPage(p) {
   };
 }
 
+// ── Holy Quran Reciters (Verified 100% EveryAyah Endpoints) ─────────
+export const QURAN_RECITERS = [
+  {
+    id: 'alafasy',
+    name: 'مشاري راشد العفاسي',
+    badge: 'تلاوة حفص المتقنة',
+    sub: 'المصحف المرتل برواية حفص عن عاصم',
+    folder: 'Alafasy_128kbps',
+    country: 'الكويت 🇰🇼',
+    avatar: 'ع'
+  },
+  {
+    id: 'abdulbasit',
+    name: 'عبد الباسط عبد الصمد',
+    badge: 'صوت مكة الخاشع',
+    sub: 'المصحف المرتل برواية حفص عن عاصم',
+    folder: 'Abdul_Basit_Murattal_192kbps',
+    country: 'مصر 🇪🇬',
+    avatar: 'ب'
+  },
+  {
+    id: 'minshawy',
+    name: 'محمد صديق المنشاوي',
+    badge: 'الصوت الباكي الحزين',
+    sub: 'المصحف المرتل برواية حفص عن عاصم',
+    folder: 'Minshawy_Murattal_128kbps',
+    country: 'مصر 🇪🇬',
+    avatar: 'م'
+  },
+  {
+    id: 'husary',
+    name: 'محمود خليل الحصري',
+    badge: 'إمام المقارئ والتجويد',
+    sub: 'المصحف المرتل مع ضبط مخارج الحروف',
+    folder: 'Husary_128kbps',
+    country: 'مصر 🇪🇬',
+    avatar: 'ح'
+  },
+  {
+    id: 'sudais',
+    name: 'عبد الرحمن السديس',
+    badge: 'إمام وخطيب المسجد الحرام',
+    sub: 'تلاوة مهيبة من محراب الكعبة المشرفة',
+    folder: 'Abdurrahmaan_As-Sudais_192kbps',
+    country: 'السعودية 🇸🇦',
+    avatar: 'س'
+  },
+  {
+    id: 'muaiqly',
+    name: 'ماهر المعيقلي',
+    badge: 'إمام المسجد الحرام',
+    sub: 'تلاوة خاشعة تلامس القلوب من رحاب مكة',
+    folder: 'MaherAlMuaiqly128kbps',
+    country: 'السعودية 🇸🇦',
+    avatar: 'م'
+  },
+  {
+    id: 'ghamadi',
+    name: 'سعد الغامدي',
+    badge: 'تلاوة هادئة شجية',
+    sub: 'المصحف المرتل برواية حفص عن عاصم',
+    folder: 'Ghamadi_40kbps',
+    country: 'السعودية 🇸🇦',
+    avatar: 'غ'
+  },
+  {
+    id: 'dossari',
+    name: 'ياسر الدوسري',
+    badge: 'إمام المسجد الحرام',
+    sub: 'تلاوة حجازية رخيمة متميزة بالخشوع',
+    folder: 'Yasser_Ad-Dussary_128kbps',
+    country: 'السعودية 🇸🇦',
+    avatar: 'د'
+  },
+  {
+    id: 'ajmi',
+    name: 'أحمد بن علي العجمي',
+    badge: 'تلاوة ندية محبوبة',
+    sub: 'المصحف المرتل برواية حفص عن عاصم',
+    folder: 'Ahmed_ibn_Ali_al-Ajamy_128kbps_ketaballah.net',
+    country: 'السعودية 🇸🇦',
+    avatar: 'ع'
+  },
+  {
+    id: 'tablawi',
+    name: 'محمد محمود الطبلاوي',
+    badge: 'نقيب قراء مصر',
+    sub: 'أصالة مدرسة التلاوة المصرية وأستاذ المقامات',
+    folder: 'Mohammad_al_Tablaway_128kbps',
+    country: 'مصر 🇪🇬',
+    avatar: 'ط'
+  },
+  {
+    id: 'ayyoub',
+    name: 'محمد أيوب',
+    badge: 'إمام المسجد النبوي الشريف',
+    sub: 'الترتيل الحجازي الخاشع من طيبة الطيبة',
+    folder: 'Muhammad_Ayyoub_128kbps',
+    country: 'المدينة المنورة 🇸🇦',
+    avatar: 'أ'
+  },
+  {
+    id: 'shatri',
+    name: 'أبو بكر الشاطري',
+    badge: 'تلاوة عذبة مؤثرة',
+    sub: 'المصحف المرتل برواية حفص عن عاصم',
+    folder: 'Abu_Bakr_Ash-Shaatree_128kbps',
+    country: 'اليمن 🇾🇪',
+    avatar: 'ش'
+  },
+  {
+    id: 'jaber',
+    name: 'علي عبد الله جابر',
+    badge: 'إمام المسجد الحرام الأسبق',
+    sub: 'تلاوة تراويح مكة الخالدة',
+    folder: 'Ali_Jaber_64kbps',
+    country: 'مكة المكرمة 🇸🇦',
+    avatar: 'ج'
+  }
+];
+
+export function getReciters() {
+  return QURAN_RECITERS;
+}
+
+export function getReciter(id) {
+  return QURAN_RECITERS.find(r => r.id === id) || QURAN_RECITERS[0];
+}
+
 // Kick off background load immediately
 loadFullQuran();
+

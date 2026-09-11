@@ -86,6 +86,7 @@ function createDefaultState() {
       notificationStyle: 'gentle',
       quranFontSize: 'large',
       showStreak: true,
+      reciterId: 'alafasy',
     },
     reminders: [
       {

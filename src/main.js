@@ -23,7 +23,10 @@ import {
   QURAN_DATA,
   getAyah,
   getNextAyah,
-  getPrevAyah
+  getPrevAyah,
+  QURAN_RECITERS,
+  getReciters,
+  getReciter
 } from './data/quran.js';
 import { getGardenStage }   from './data/habits.js';
 import {
@@ -649,6 +652,13 @@ function openAyahAction(surahId, ayahNum, event) {
     `;
   }
 
+  // Sync reciter name in sheet
+  const activeReciter = getReciter(State.get().settings.reciterId);
+  const reciterLabel = document.getElementById('current-reciter-name');
+  if (reciterLabel) {
+    reciterLabel.textContent = `تلاوة الشيخ ${activeReciter.name}`;
+  }
+
   // Sync repeat chip active state
   const chips = [
     { id: 'chip-repeat-1', mode: 1 },
@@ -773,8 +783,10 @@ function playAyahContinuous(surahNumber, ayahNumber) {
     _audioInstance.onerror = null;
   }
 
+  const reciterId = State.get().settings.reciterId || 'alafasy';
+  const reciter = getReciter(reciterId);
   const pad3 = (num) => String(num).padStart(3, '0');
-  const audioUrl = `https://everyayah.com/data/Alafasy_128kbps/${pad3(sNum)}${pad3(aNum)}.mp3`;
+  const audioUrl = `https://everyayah.com/data/${reciter.folder}/${pad3(sNum)}${pad3(aNum)}.mp3`;
 
   updateAudioBarUI();
 
@@ -802,13 +814,15 @@ function playAyahContinuous(surahNumber, ayahNumber) {
 
 function handleAyahEnded() {
   const { repeatMode, repeatCounter, surahNumber, ayahNumber } = _audioState;
+  const reciterId = State.get().settings.reciterId || 'alafasy';
+  const reciter = getReciter(reciterId);
+  const pad3 = (num) => String(num).padStart(3, '0');
 
   // Repeat current ayah if mode requires
   if (repeatMode === Infinity || repeatCounter < repeatMode) {
     _audioState.repeatCounter++;
     updateAudioBarUI();
-    const pad3 = (num) => String(num).padStart(3, '0');
-    const audioUrl = `https://everyayah.com/data/Alafasy_128kbps/${pad3(surahNumber)}${pad3(ayahNumber)}.mp3`;
+    const audioUrl = `https://everyayah.com/data/${reciter.folder}/${pad3(surahNumber)}${pad3(ayahNumber)}.mp3`;
     _audioInstance = new Audio(audioUrl);
     _audioInstance.play().then(() => {
       _audioState.isPlaying = true;
@@ -929,6 +943,13 @@ function updateAudioBarUI() {
   const titleEl = document.getElementById('audio-bar-title');
   if (titleEl) {
     titleEl.textContent = `سورة ${_audioState.surahName} • آية ${n(_audioState.ayahNumber)}`;
+  }
+
+  const reciterId = State.get().settings.reciterId || 'alafasy';
+  const reciter = getReciter(reciterId);
+  const reciterNameEl = document.getElementById('audio-bar-reciter-name');
+  if (reciterNameEl) {
+    reciterNameEl.textContent = reciter.name;
   }
 
   const statusEl = document.getElementById('audio-bar-status');
@@ -1516,6 +1537,101 @@ function snoozeAlarm(reminderId) {
   State.showToast(`⏳ تم تأجيل التنبيه لمدة ١٠ دقائق (عند ${formatReminderTime(snoozedTime)})`);
 }
 
+// ── Holy Quran Reciter Selector Modal ─────────────────────
+function openReciterModal() {
+  const s = State.get();
+  const currentReciterId = s.settings.reciterId || 'alafasy';
+  const reciters = getReciters();
+
+  openModal(`
+    <div class="reciter-modal-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3)">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="material-symbols-outlined icon-fill" style="color:var(--color-gold);font-size:1.6rem">record_voice_over</span>
+          <div>
+            <h3 style="font-size:var(--font-size-xl);font-weight:700;color:var(--text-primary);margin:0">اختيار القارئ المفضل</h3>
+            <p style="font-size:0.75rem;color:var(--text-muted);margin:2px 0 0 0">استمع للقرآن الكريم بأعذب أصوات أئمة الحرمين وقراء العالم الإسلامي</p>
+          </div>
+        </div>
+        <button onclick="App.closeModal()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <div class="reciter-note">
+        <span class="material-symbols-outlined" style="font-size:1.1rem;color:var(--color-gold);flex-shrink:0">info</span>
+        <div>
+          تلاوة آية بآية مع المتابعة في المصحف والتكرار الذكي.
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:3px">
+            (تلاوات الشيخ محمد عبد العزيز حصان رحمه الله مسجلة كمحافل إذاعية نادرة وليست مفرغة آية آية، ولذا وفرنا عمالقة التلاوة المرتلة الحصري والمنشاوي وعبد الباسط والطبلاوي وأئمة الحرمين).
+          </div>
+        </div>
+      </div>
+
+      <div class="reciter-list">
+        ${reciters.map(r => {
+          const isSelected = r.id === currentReciterId;
+          return `
+            <div class="reciter-item ${isSelected ? 'active' : ''}" onclick="App.selectReciter('${r.id}')">
+              <div class="reciter-item__avatar">${r.avatar}</div>
+              <div class="reciter-item__info">
+                <div class="reciter-item__name">
+                  <span>${r.name}</span>
+                  <span class="reciter-badge">${r.badge}</span>
+                </div>
+                <div class="reciter-item__sub">${r.sub} • ${r.country}</div>
+              </div>
+              <div class="reciter-item__check">
+                <span class="material-symbols-outlined ${isSelected ? 'icon-fill' : ''}">
+                  ${isSelected ? 'check_circle' : 'radio_button_unchecked'}
+                </span>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <div style="margin-top:var(--space-4)">
+        <button class="btn btn--secondary" onclick="App.closeModal()" style="width:100%">
+          إغلاق
+        </button>
+      </div>
+    </div>
+  `);
+}
+
+function selectReciter(reciterId) {
+  const reciter = getReciter(reciterId);
+  if (!reciter) return;
+
+  State.updateSettings({ reciterId: reciter.id });
+
+  // Update action sheet if open
+  const reciterActionEl = document.getElementById('current-reciter-name');
+  if (reciterActionEl) {
+    reciterActionEl.textContent = `تلاوة الشيخ ${reciter.name}`;
+  }
+
+  // Update audio bar
+  const audioBarReciterEl = document.getElementById('audio-bar-reciter-name');
+  if (audioBarReciterEl) {
+    audioBarReciterEl.textContent = reciter.name;
+  }
+
+  // If audio is currently playing, seamlessly continue with the new reciter for the current ayah
+  if (_audioState.isPlaying && _audioState.surahNumber && _audioState.ayahNumber) {
+    playAyahContinuous(_audioState.surahNumber, _audioState.ayahNumber);
+  }
+
+  closeModal();
+  State.showToast(`🎙️ تم اختيار تلاوة الشيخ ${reciter.name}`);
+
+  // Re-render if currently on profile screen to reflect new reciter in settings
+  if (_currentScreen === 'profile') {
+    renderCurrentScreen();
+  }
+}
+
 function openFontSize() {
   const s = State.get();
   openModal(`
@@ -1667,6 +1783,8 @@ window.App = {
   openGroup,
   // Settings & Reminders
   updateSetting,
+  openReciterModal,
+  selectReciter,
   openRemindersModal,
   openAddReminderModal,
   onReminderTargetChange,

@@ -11,7 +11,8 @@ import {
   getAllSurahs,
   JUZ_NAMES,
   ATHKAR,
-  isQuranLoaded
+  isQuranLoaded,
+  getReciter
 } from '../data/quran.js';
 
 let _activeTab = 'quran';       // 'quran' | 'athkar'
@@ -21,6 +22,7 @@ export function renderWird() {
   const s = State.get();
   const n = State.toArabicNum;
   const qp = s.quranProgress;
+  const activeReciter = getReciter(s.settings.reciterId);
 
   const currentPageNum = Math.max(1, Math.min(604, qp.currentPage || 1));
   const currentSurahNum = Math.max(1, Math.min(114, qp.currentSurahId || 1));
@@ -299,12 +301,18 @@ export function renderWird() {
 
     <!-- Recitation & Repeat Control -->
     <div style="background:var(--color-bg-secondary);padding:var(--space-3);border-radius:var(--radius-xl);border:1px solid var(--color-border);margin-bottom:var(--space-3);display:flex;flex-direction:column;gap:var(--space-2)">
-      <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
         <span style="font-size:var(--font-size-xs);font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:4px">
           <span class="material-symbols-outlined" style="font-size:1.1rem;color:var(--color-gold)">record_voice_over</span>
-          تلاوة الشيخ مشاري العفاسي (مستمرة)
+          <span id="current-reciter-name">تلاوة الشيخ ${activeReciter.name}</span>
         </span>
-        <span id="ayah-repeat-indicator" style="font-size:0.75rem;color:var(--color-gold);font-weight:600">بدون تكرار</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button class="btn btn--ghost" style="padding:2px 8px;font-size:0.75rem;border:1px solid rgba(197,160,89,0.4);border-radius:var(--radius-pill);color:var(--color-gold);cursor:pointer;display:inline-flex;align-items:center;gap:3px" onclick="App.openReciterModal()" title="تغيير القارئ">
+            <span class="material-symbols-outlined" style="font-size:0.95rem">swap_horiz</span>
+            <span>تغيير</span>
+          </button>
+          <span id="ayah-repeat-indicator" style="font-size:0.75rem;color:var(--color-gold);font-weight:600">بدون تكرار</span>
+        </div>
       </div>
 
       <!-- Repeat Mode Selector Chips -->
@@ -354,13 +362,14 @@ export function renderWird() {
   <div id="mushaf-audio-bar" class="mushaf-audio-bar">
     <div class="mushaf-audio-bar__header">
       <div class="mushaf-audio-bar__info">
-        <div class="mushaf-audio-bar__avatar">
+        <div class="mushaf-audio-bar__avatar" onclick="App.openReciterModal()" style="cursor:pointer" title="تغيير القارئ">
           <span class="material-symbols-outlined" style="font-size:1.3rem">graphic_eq</span>
         </div>
         <div class="mushaf-audio-bar__meta">
           <div class="mushaf-audio-bar__title" id="audio-bar-title">سورة الفاتحة • آية ١</div>
-          <div class="mushaf-audio-bar__subtitle">
-            <span>مشاري العفاسي</span>
+          <div class="mushaf-audio-bar__subtitle" style="cursor:pointer" onclick="App.openReciterModal()" title="انقر لتغيير القارئ">
+            <span id="audio-bar-reciter-name">${activeReciter.name}</span>
+            <span class="material-symbols-outlined" style="font-size:0.9rem;color:var(--color-gold)">expand_more</span>
             <span>•</span>
             <span id="audio-bar-status">جاري التلاوة</span>
           </div>
