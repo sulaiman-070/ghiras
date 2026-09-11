@@ -297,24 +297,106 @@ export function renderWird() {
       التفسير الميسر يظهر هنا...
     </div>
 
-    <!-- Action Buttons -->
+    <!-- Recitation & Repeat Control -->
+    <div style="background:var(--color-bg-secondary);padding:var(--space-3);border-radius:var(--radius-xl);border:1px solid var(--color-border);margin-bottom:var(--space-3);display:flex;flex-direction:column;gap:var(--space-2)">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:var(--font-size-xs);font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:4px">
+          <span class="material-symbols-outlined" style="font-size:1.1rem;color:var(--color-gold)">record_voice_over</span>
+          تلاوة الشيخ مشاري العفاسي (مستمرة)
+        </span>
+        <span id="ayah-repeat-indicator" style="font-size:0.75rem;color:var(--color-gold);font-weight:600">بدون تكرار</span>
+      </div>
+
+      <!-- Repeat Mode Selector Chips -->
+      <div style="display:flex;align-items:center;gap:6px;overflow-x:auto;padding-bottom:2px">
+        <button class="chip audio-repeat-chip active" id="chip-repeat-1" onclick="App.setAudioRepeatMode(1)" style="font-size:0.75rem;cursor:pointer">
+          مستمر (بدون تكرار)
+        </button>
+        <button class="chip audio-repeat-chip" id="chip-repeat-2" onclick="App.setAudioRepeatMode(2)" style="font-size:0.75rem;cursor:pointer">
+          تكرار مرتين (٢x)
+        </button>
+        <button class="chip audio-repeat-chip" id="chip-repeat-3" onclick="App.setAudioRepeatMode(3)" style="font-size:0.75rem;cursor:pointer">
+          تكرار ٣ مرات (٣x)
+        </button>
+        <button class="chip audio-repeat-chip" id="chip-repeat-inf" onclick="App.setAudioRepeatMode(Infinity)" style="font-size:0.75rem;cursor:pointer">
+          تكرار دائم (∞)
+        </button>
+      </div>
+
+      <button class="btn btn--primary" id="ayah-play-audio-btn" onclick="App.playCurrentAyahAudio()" style="width:100%;margin-top:2px">
+        <span class="material-symbols-outlined">play_circle</span>
+        <span>تشغيل التلاوة المستمرة من هذه الآية</span>
+      </button>
+    </div>
+
+    <!-- Other Ayah Actions -->
     <div class="ayah-sheet__actions">
-      <button class="btn btn--primary" id="ayah-play-audio-btn" onclick="App.playCurrentAyahAudio()" style="flex:1">
-        <span class="material-symbols-outlined">volume_up</span>
-        <span>استماع للتلاوة</span>
-      </button>
-
-      <button class="btn btn--secondary" onclick="App.bookmarkSelectedAyah()" title="حفظ علامة مرجعية" style="width:auto;padding:var(--space-3)">
+      <button class="btn btn--secondary" onclick="App.bookmarkSelectedAyah()" title="حفظ علامة مرجعية" style="flex:1">
         <span class="material-symbols-outlined">bookmark</span>
+        <span>علامة</span>
       </button>
 
-      <button class="btn btn--secondary" onclick="App.copySelectedAyah()" title="نسخ الآية" style="width:auto;padding:var(--space-3)">
+      <button class="btn btn--secondary" onclick="App.copySelectedAyah()" title="نسخ الآية" style="flex:1">
         <span class="material-symbols-outlined">content_copy</span>
+        <span>نسخ</span>
       </button>
 
-      <button class="btn btn--sage" onclick="App.markSelectedAyahAsRead()" title="سجّل قراءة هذه الآية في وردك" style="width:auto;padding:var(--space-3)">
+      <button class="btn btn--sage" onclick="App.markSelectedAyahAsRead()" title="سجّل قراءة هذه الآية في وردك" style="flex:1.2">
         <span class="material-symbols-outlined icon-fill">check</span>
+        <span>حفظ الورد</span>
       </button>
+    </div>
+  </div>
+
+  <!-- ═════════════════════════════════════════════════
+       FLOATING STICKY MUSHAF AUDIO PLAYER BAR
+       ═════════════════════════════════════════════════ -->
+  <div id="mushaf-audio-bar" class="mushaf-audio-bar">
+    <div class="mushaf-audio-bar__header">
+      <div class="mushaf-audio-bar__info">
+        <div class="mushaf-audio-bar__avatar">
+          <span class="material-symbols-outlined" style="font-size:1.3rem">graphic_eq</span>
+        </div>
+        <div class="mushaf-audio-bar__meta">
+          <div class="mushaf-audio-bar__title" id="audio-bar-title">سورة الفاتحة • آية ١</div>
+          <div class="mushaf-audio-bar__subtitle">
+            <span>مشاري العفاسي</span>
+            <span>•</span>
+            <span id="audio-bar-status">جاري التلاوة</span>
+          </div>
+        </div>
+      </div>
+      <button class="mushaf-audio-bar__close" onclick="App.stopAyahAudio()" title="إيقاف التلاوة وإغلاق المشغل">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <div class="mushaf-audio-bar__controls">
+      <!-- Repeat Mode Cycle Button -->
+      <button class="mushaf-audio-repeat-btn" id="audio-bar-repeat-btn" onclick="App.audioCycleRepeatMode()" title="تغيير وضع التكرار">
+        <span class="material-symbols-outlined" style="font-size:1.1rem">repeat</span>
+        <span id="audio-bar-repeat-label">مستمر</span>
+      </button>
+
+      <!-- Player Controls -->
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="mushaf-audio-btn" onclick="App.audioPlayPrevAyah()" title="الآية السابقة">
+          <span class="material-symbols-outlined" style="font-size:1.6rem">skip_previous</span>
+        </button>
+
+        <button class="mushaf-audio-btn mushaf-audio-btn--play" id="audio-bar-play-toggle" onclick="App.audioTogglePlayPause()" title="تشغيل / إيقاف مؤقت">
+          <span class="material-symbols-outlined" id="audio-bar-play-icon" style="font-size:1.8rem">pause</span>
+        </button>
+
+        <button class="mushaf-audio-btn" onclick="App.audioPlayNextAyah()" title="الآية التالية">
+          <span class="material-symbols-outlined" style="font-size:1.6rem">skip_next</span>
+        </button>
+      </div>
+
+      <!-- Current Page Jump Quick View -->
+      <div id="audio-bar-page-badge" style="font-size:0.75rem;color:#C5A059;font-weight:700;padding:4px 8px;background:rgba(255,255,255,0.06);border-radius:var(--radius-md);cursor:pointer" onclick="App.audioBarJumpToCurrentPage()">
+        ص ١
+      </div>
     </div>
   </div>
 

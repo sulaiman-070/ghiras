@@ -305,6 +305,72 @@ export function getPageOfSurah(surahNumber) {
   return meta ? meta.page : 1;
 }
 
+export function getAyah(surahNumber, ayahNumber) {
+  const s = getSurah(surahNumber);
+  if (!s || !s.ayat) return null;
+  return s.ayat.find(a => a.number === parseInt(ayahNumber, 10)) || null;
+}
+
+export function getNextAyah(surahNumber, ayahNumber) {
+  const sNum = parseInt(surahNumber, 10);
+  const aNum = parseInt(ayahNumber, 10);
+  const surah = getSurah(sNum);
+  if (!surah) return null;
+
+  if (aNum < surah.ayahCount) {
+    const nextAyah = surah.ayat ? surah.ayat.find(a => a.number === aNum + 1) : null;
+    return {
+      surahNumber: sNum,
+      surahName: surah.name,
+      ayahNumber: aNum + 1,
+      ayah: nextAyah,
+      page: nextAyah ? nextAyah.page : surah.page
+    };
+  } else if (sNum < 114) {
+    const nextSurah = getSurah(sNum + 1);
+    if (!nextSurah) return null;
+    const firstAyah = nextSurah.ayat ? nextSurah.ayat[0] : null;
+    return {
+      surahNumber: sNum + 1,
+      surahName: nextSurah.name,
+      ayahNumber: 1,
+      ayah: firstAyah,
+      page: firstAyah ? firstAyah.page : nextSurah.page
+    };
+  }
+  return null;
+}
+
+export function getPrevAyah(surahNumber, ayahNumber) {
+  const sNum = parseInt(surahNumber, 10);
+  const aNum = parseInt(ayahNumber, 10);
+  const surah = getSurah(sNum);
+  if (!surah) return null;
+
+  if (aNum > 1) {
+    const prevAyah = surah.ayat ? surah.ayat.find(a => a.number === aNum - 1) : null;
+    return {
+      surahNumber: sNum,
+      surahName: surah.name,
+      ayahNumber: aNum - 1,
+      ayah: prevAyah,
+      page: prevAyah ? prevAyah.page : surah.page
+    };
+  } else if (sNum > 1) {
+    const prevSurah = getSurah(sNum - 1);
+    if (!prevSurah) return null;
+    const lastAyah = prevSurah.ayat && prevSurah.ayat.length ? prevSurah.ayat[prevSurah.ayat.length - 1] : null;
+    return {
+      surahNumber: sNum - 1,
+      surahName: prevSurah.name,
+      ayahNumber: prevSurah.ayahCount,
+      ayah: lastAyah,
+      page: lastAyah ? lastAyah.page : prevSurah.page
+    };
+  }
+  return null;
+}
+
 // ── Athkar Collection ────────────────────────────────────────────────
 export const ATHKAR = {
   morning: [
