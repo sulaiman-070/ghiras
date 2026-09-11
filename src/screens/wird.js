@@ -17,6 +17,28 @@ import {
 
 let _activeTab = 'quran';       // 'quran' | 'athkar'
 let _readingMode = 'page';      // 'page' (1..604) | 'surah' (1..114)
+let _isMemorizationMode = false; // Memorization masking mode
+
+export function setMemorizationMode(val) {
+  _isMemorizationMode = val;
+}
+
+export function isMemorizationActive() {
+  return _isMemorizationMode;
+}
+
+function renderAyahTextWithMask(text, isMemo) {
+  if (!isMemo) return text;
+  const words = text.trim().split(/\s+/);
+  if (words.length <= 2) return text;
+  const maskStartIndex = Math.max(1, words.length - Math.ceil(words.length * 0.45));
+  return words.map((w, idx) => {
+    if (idx >= maskStartIndex) {
+      return `<span class="masked-word" onclick="App.revealMaskedWord(this, event)" title="انقر لكشف الكلمة للتأكد">${w}</span>`;
+    }
+    return w;
+  }).join(' ');
+}
 
 export function renderWird() {
   const s = State.get();
@@ -122,6 +144,10 @@ export function renderWird() {
 
         <!-- Left: Font Zoom & Fullscreen Focus Mode -->
         <div class="mushaf-toolbar__group">
+          <button class="mushaf-tool-btn ${_isMemorizationMode ? 'is-active' : ''}" onclick="App.toggleMemorizationMode()" id="memo-mode-btn" title="وضع اختبار الحفظ والتسميع (إخفاء الكلمات للتأكد غيباً)">
+            <span class="material-symbols-outlined" style="font-size:1.1rem;color:${_isMemorizationMode ? '#1A1208' : 'var(--color-gold)'}">psychology</span>
+            <span style="font-size:0.75rem;font-weight:700">${_isMemorizationMode ? 'الحفظ: مفعّل' : 'اختبار الحفظ'}</span>
+          </button>
           <button class="mushaf-tool-btn" onclick="App.adjustMushafFontSize(-2)" title="تصغير الخط">
             <span style="font-size:0.8rem;font-weight:700">A-</span>
           </button>
@@ -133,6 +159,19 @@ export function renderWird() {
           </button>
         </div>
       </div>
+
+      <!-- Memorization Mode Banner if active -->
+      ${_isMemorizationMode ? `
+        <div class="memo-mode-banner">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="material-symbols-outlined" style="font-size:1.2rem;color:var(--color-gold)">visibility_off</span>
+            <span style="font-size:0.8rem;color:var(--text-primary);font-weight:600">وضع اختبار الحفظ والتسميع مفعّل — انقر على أي كلمة مموّهة لكشفها والتأكد.</span>
+          </div>
+          <button class="btn btn--ghost" style="color:var(--color-gold);padding:3px 10px;font-size:0.75rem;border:1px solid rgba(197,160,89,0.4);border-radius:var(--radius-pill)" onclick="App.revealAllMaskedWords()">
+            كشف كل الكلمات
+          </button>
+        </div>
+      ` : ''}
 
       <!-- ── The Authentic Classical Mushaf Page (1..604) ── -->
       <div class="mushaf-page" id="mushaf-page">
@@ -192,7 +231,7 @@ export function renderWird() {
                         id="mushaf-ayah-${block.surahNumber}-${ayah.number}"
                         onclick="App.openAyahAction(${block.surahNumber}, ${ayah.number}, event)"
                         title="سورة ${block.surahName} • آية ${ayah.number} — اضغط للتفسير والاستماع">
-                    ${ayah.text}
+                    ${renderAyahTextWithMask(ayah.text, _isMemorizationMode)}
                   </span>
                   <span class="mushaf-ayah-end"
                         onclick="App.openAyahAction(${block.surahNumber}, ${ayah.number}, event)"

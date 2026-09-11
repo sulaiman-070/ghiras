@@ -1845,4 +1845,266 @@ body.mushaf-focus-active .mushaf-exit-focus-btn {
   flex-shrink: 0;
 }
 
+/* ═════════════════════════════════════════════════
+   FEATURE 1: SOUL REMEDY COMPASS (بوصلة القلب)
+   ═════════════════════════════════════════════════ */
+.soul-remedy-pills-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px 8px 2px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-gold) transparent;
+}
+
+.soul-remedy-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-bg-card);
+  border: 1.5px solid rgba(197, 160, 89, 0.4);
+  padding: 8px 14px;
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--shadow-sm);
+}
+
+.soul-remedy-pill:hover {
+  border-color: var(--color-gold);
+  background: rgba(197, 160, 89, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(197, 160, 89, 0.2);
+}
+
+.soul-remedy-modal-card {
+  max-width: 520px !important;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  text-align: right;
+  direction: rtl;
+}
+
+.soul-remedy-ayah-box {
+  background: var(--mushaf-paper-bg, #FFFDF9);
+  border: 1.5px solid var(--mushaf-gold-border, rgba(197, 160, 89, 0.6));
+  border-radius: var(--radius-2xl);
+  padding: var(--space-5);
+  text-align: center;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.06);
+  position: relative;
+}
+
+.soul-remedy-ayah-text {
+  font-family: var(--font-quran, 'Amiri Quran', serif);
+  font-size: 1.45rem;
+  line-height: 2.3;
+  color: var(--mushaf-text-ink, #2C2219);
+  margin-bottom: var(--space-3);
+}
+
+.soul-remedy-reflection-box {
+  background: rgba(74, 107, 83, 0.08);
+  border: 1px solid rgba(74, 107, 83, 0.25);
+  border-radius: var(--radius-xl);
+  padding: var(--space-4);
+  font-size: 0.88rem;
+  line-height: 1.8;
+  color: var(--text-secondary);
+}
+
+.soul-remedy-action-box {
+  background: rgba(184, 142, 79, 0.08);
+  border: 1px solid rgba(184, 142, 79, 0.3);
+  border-radius: var(--radius-xl);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.remedy-counter-btn {
+  background: var(--color-primary, #2C2219);
+  color: var(--color-gold, #C5A059);
+  border: 1.5px solid var(--color-gold, #C5A059);
+  border-radius: var(--radius-xl);
+  padding: 10px 16px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.remedy-counter-btn:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 15px rgba(197, 160, 89, 0.3);
+}
+
+.remedy-counter-btn:active {
+  transform: scale(0.97);
+}
+
+/* ═════════════════════════════════════════════════
+   FEATURE 2: TIME-BASED SMART WIRD (اقرأ حسب وقتك)
+   ═════════════════════════════════════════════════ */
+.time-wird-chip {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(197, 160, 89, 0.45);
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.time-wird-chip:hover {
+  background: var(--color-gold-light);
+  border-color: var(--color-gold);
+  color: #1A1208;
+  transform: translateY(-1px);
+}
+
+.timed-wird-floating-bar {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 24px);
+  max-width: 480px;
+  background: rgba(26, 18, 11, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1.5px solid var(--color-gold);
+  border-radius: var(--radius-2xl);
+  padding: 10px 16px;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.45), 0 0 20px rgba(184, 142, 79, 0.25);
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #FFF8EE;
+  direction: rtl;
+  animation: slideDown 0.3s ease;
+}
+
+.timed-wird-clock {
+  font-size: 1.3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-gold);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ═════════════════════════════════════════════════
+   FEATURE 3: THE LIVING KHATMA TREE (شجرة الختمة)
+   ═════════════════════════════════════════════════ */
+.khatma-branches-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+
+@media (max-width: 420px) {
+  .khatma-branches-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+.khatma-branch-leaf {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 2px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: all 0.22s ease;
+}
+
+.khatma-branch-leaf:hover {
+  transform: translateY(-2px);
+  background: rgba(197, 160, 89, 0.15);
+  border-color: var(--color-gold);
+}
+
+.khatma-branch-leaf.bloomed {
+  background: rgba(197, 160, 89, 0.16);
+  border-color: rgba(197, 160, 89, 0.6);
+  box-shadow: 0 0 10px rgba(197, 160, 89, 0.2);
+}
+
+.khatma-branch-leaf.active {
+  background: rgba(74, 107, 83, 0.35);
+  border-color: var(--color-gold);
+  box-shadow: 0 0 12px rgba(197, 160, 89, 0.45);
+  animation: pulseGold 2s infinite ease-in-out;
+}
+
+.khatma-branch-icon {
+  font-size: 1.1rem;
+}
+
+.khatma-branch-num {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #D4BA94;
+}
+
+.khatma-branch-leaf.bloomed .khatma-branch-num {
+  color: var(--color-gold);
+}
+
+/* ═════════════════════════════════════════════════
+   FEATURE 4: MEMORIZATION MASKING (اختبار الحفظ)
+   ═════════════════════════════════════════════════ */
+.memo-mode-banner {
+  background: rgba(197, 160, 89, 0.12);
+  border: 1px solid rgba(197, 160, 89, 0.4);
+  border-radius: var(--radius-xl);
+  padding: 8px 14px;
+  margin-bottom: var(--space-3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  animation: fadeIn 0.25s ease;
+}
+
+.masked-word {
+  filter: blur(6px);
+  background: rgba(197, 160, 89, 0.3);
+  border-radius: 4px;
+  padding: 0 4px;
+  display: inline-block;
+  cursor: pointer;
+  user-select: none;
+  transition: filter 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.25s ease;
+}
+
+.masked-word:hover {
+  background: rgba(197, 160, 89, 0.45);
+}
+
+.masked-word.revealed {
+  filter: blur(0);
+  background: rgba(197, 160, 89, 0.14);
+  box-shadow: 0 0 10px rgba(197, 160, 89, 0.5);
+}
+
+
 

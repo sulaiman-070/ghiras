@@ -4,6 +4,40 @@
 
 import { State } from '../state.js';
 import { GARDEN_STAGES, ACHIEVEMENTS, getGardenStage, getGardenProgress } from '../data/habits.js';
+import { JUZ_NAMES } from '../data/quran.js';
+
+const JUZ_PAGES = [
+  { juz: 1, name: 'الجزء الأول', startPage: 1 },
+  { juz: 2, name: 'الجزء الثاني', startPage: 22 },
+  { juz: 3, name: 'الجزء الثالث', startPage: 42 },
+  { juz: 4, name: 'الجزء الرابع', startPage: 62 },
+  { juz: 5, name: 'الجزء الخامس', startPage: 82 },
+  { juz: 6, name: 'الجزء السادس', startPage: 102 },
+  { juz: 7, name: 'الجزء السابع', startPage: 121 },
+  { juz: 8, name: 'الجزء الثامن', startPage: 142 },
+  { juz: 9, name: 'الجزء التاسع', startPage: 162 },
+  { juz: 10, name: 'الجزء العاشر', startPage: 182 },
+  { juz: 11, name: 'الجزء الحادي عشر', startPage: 201 },
+  { juz: 12, name: 'الجزء الثاني عشر', startPage: 222 },
+  { juz: 13, name: 'الجزء الثالث عشر', startPage: 242 },
+  { juz: 14, name: 'الجزء الرابع عشر', startPage: 262 },
+  { juz: 15, name: 'الجزء الخامس عشر', startPage: 282 },
+  { juz: 16, name: 'الجزء السادس عشر', startPage: 302 },
+  { juz: 17, name: 'الجزء السابع عشر', startPage: 322 },
+  { juz: 18, name: 'الجزء الثامن عشر', startPage: 342 },
+  { juz: 19, name: 'الجزء التاسع عشر', startPage: 362 },
+  { juz: 20, name: 'الجزء العشرون', startPage: 382 },
+  { juz: 21, name: 'الجزء الحادي والعشرون', startPage: 402 },
+  { juz: 22, name: 'الجزء الثاني والعشرون', startPage: 422 },
+  { juz: 23, name: 'الجزء الثالث والعشرون', startPage: 442 },
+  { juz: 24, name: 'الجزء الرابع والعشرون', startPage: 462 },
+  { juz: 25, name: 'الجزء الخامس والعشرون', startPage: 482 },
+  { juz: 26, name: 'الجزء السادس والعشرون', startPage: 502 },
+  { juz: 27, name: 'الجزء السابع والعشرون', startPage: 522 },
+  { juz: 28, name: 'الجزء الثامن والعشرون', startPage: 542 },
+  { juz: 29, name: 'الجزء التاسع والعشرون', startPage: 562 },
+  { juz: 30, name: 'الجزء الثلاثون', startPage: 582 }
+];
 
 export function renderGarden() {
   const s = State.get();
@@ -12,6 +46,9 @@ export function renderGarden() {
   const stage = getGardenStage(streak);
   const pct = getGardenProgress(streak);
   const last7 = State.getLast7Days();
+  const curPage = Math.max(1, Math.min(604, s.quranProgress.currentPage || 1));
+  const khatmaPct = Math.min(100, Math.round((curPage / 604) * 100));
+  const currentJuz = Math.min(30, Math.max(1, Math.ceil(curPage / 20.13)));
 
   // Which achievements are unlocked?
   const unlockedIds = s.garden.badges.map(b => b.id);
@@ -46,10 +83,78 @@ export function renderGarden() {
         <span>عمر النبتة: ${n(streak)} أيام</span>
       </div>
     </div>
-    <h1 style="font-size:var(--font-size-2xl);font-weight:700;color:var(--text-primary)">حديقتي المباركة 🌿</h1>
+    <h1 style="font-size:var(--font-size-2xl);font-weight:700;color:var(--text-primary)">حديقة القرآن والختمة المباركة 🌿</h1>
     <p style="font-size:var(--font-size-base);color:var(--text-secondary);margin-top:var(--space-2);line-height:1.8">
-      كل يوم من الالتزام يسقي بذرتك ويزهر حياتك بطمأنينة وسكينة.
+      كل صفحة تتلوها تُنبت ورقة وتفتح زهرة في شجرة ختمتك، وكل يوم استمرار يروي روحك بالسكينة.
     </p>
+  </section>
+
+  <!-- ═════════════════════════════════════════════════
+       THE LIVING KHATMA TREE (شجرة ختمة القرآن الحية)
+       ═════════════════════════════════════════════════ -->
+  <section class="card animate-fadeInUp" style="background:linear-gradient(135deg, rgba(24, 18, 12, 0.95) 0%, rgba(38, 30, 20, 0.95) 100%);border:1.5px solid var(--color-gold);color:#FAF7F2;position:relative;overflow:hidden;padding:var(--space-5)">
+    <!-- Golden Ambient Aura -->
+    <div style="position:absolute;top:-4rem;right:-4rem;width:14rem;height:14rem;background:radial-gradient(circle, rgba(197,160,89,0.25) 0%, transparent 70%);border-radius:50%;pointer-events:none"></div>
+    <div style="position:absolute;bottom:-4rem;left:-4rem;width:12rem;height:12rem;background:radial-gradient(circle, rgba(74,107,83,0.3) 0%, transparent 70%);border-radius:50%;pointer-events:none"></div>
+
+    <div style="position:relative;z-index:1">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:2.6rem;height:2.6rem;border-radius:50%;background:rgba(197,160,89,0.2);border:1px solid var(--color-gold);display:flex;align-items:center;justify-content:center;color:var(--color-gold)">
+            <span class="material-symbols-outlined" style="font-size:1.4rem">park</span>
+          </div>
+          <div>
+            <h2 style="font-size:1.15rem;font-weight:700;color:#FFF8EE;margin:0">شجرة ختمة القرآن الحية 🌳</h2>
+            <div style="font-size:0.75rem;color:#D4BA94;margin-top:2px">٣٠ غصناً تزهر وتضيء مع كل صفحة تقرؤها في مصحفك</div>
+          </div>
+        </div>
+        <button class="btn btn--sm" style="background:rgba(197,160,89,0.2);color:var(--color-gold);border:1px solid var(--color-gold);border-radius:var(--radius-pill);font-size:0.75rem;padding:4px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:4px" onclick="App.openKhatmaCertificate()">
+          <span class="material-symbols-outlined" style="font-size:1rem">workspace_premium</span>
+          <span>شهادة الختمة</span>
+        </button>
+      </div>
+
+      <!-- Khatma Progress Stats Ring & Bar -->
+      <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(197,160,89,0.3);border-radius:var(--radius-xl);padding:var(--space-3) var(--space-4);margin-bottom:var(--space-4)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:0.85rem;color:#E6C887;font-weight:600">تقدّم الختمة المباركة:</span>
+          <span style="font-size:1rem;font-weight:700;color:var(--color-gold)">
+            ${n(curPage)} / ٦٠٤ صفحة (${n(khatmaPct)}٪)
+          </span>
+        </div>
+        <div class="progress-bar" style="background:rgba(255,255,255,0.1);height:8px">
+          <div class="progress-bar__fill" style="width:${khatmaPct}%;background:linear-gradient(90deg, #B88E4F 0%, #E6C887 100%)"></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.75rem;color:#D4BA94;margin-top:8px">
+          <span>أنت الآن في: ${JUZ_NAMES[currentJuz] || 'الجزء الأول'}</span>
+          <span>المتبقي للختم: ${n(Math.max(0, 604 - curPage))} صفحة</span>
+        </div>
+      </div>
+
+      <!-- 30-Juz Interactive Branches Grid -->
+      <div style="margin-bottom:var(--space-1)">
+        <div style="font-size:0.8rem;font-weight:700;color:#FFF8EE;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+          <span class="material-symbols-outlined" style="font-size:1rem;color:var(--color-gold)">eco</span>
+          <span>أغصان الأجزاء الثلاثين (اضغط للانتقال فوراً للمصحف):</span>
+        </div>
+        <div class="khatma-branches-grid">
+          ${JUZ_PAGES.map(j => {
+            const nextStart = JUZ_PAGES[j.juz]?.startPage || 605;
+            const isCompleted = curPage >= nextStart;
+            const isCurrent = curPage >= j.startPage && curPage < nextStart;
+            const statusClass = isCompleted ? 'bloomed' : (isCurrent ? 'active' : 'bud');
+            const icon = isCompleted ? '🌸' : (isCurrent ? '🌿' : '🌱');
+            return `
+              <div class="khatma-branch-leaf ${statusClass}" onclick="App.goToPage(${j.startPage})" title="${j.name} (يبدأ ص ${j.startPage})">
+                <span class="khatma-branch-icon">${icon}</span>
+                <span class="khatma-branch-num">ج ${n(j.juz)}</span>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+
+    </div>
   </section>
 
   <!-- Garden Visual -->

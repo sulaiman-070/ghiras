@@ -5,6 +5,7 @@
 import { State } from '../state.js';
 import { GARDEN_STAGES, getGardenStage, getGardenProgress, toArabicNumeral } from '../data/habits.js';
 import { getDailyAyah } from '../data/quran.js';
+import { SOUL_REMEDIES } from '../data/remedies.js';
 
 export function renderHome() {
   const s = State.get();
@@ -103,6 +104,25 @@ export function renderHome() {
           خاطرة تدبّر
         </span>
       </div>
+
+      <!-- Time-based Quick Launch: اقرأ حسب وقتك -->
+      <div style="margin-top:var(--space-4);padding-top:var(--space-3);border-top:1px dashed rgba(184,142,79,0.3);text-align:center">
+        <div style="font-size:0.75rem;font-weight:700;color:var(--text-secondary);margin-bottom:var(--space-2);display:flex;align-items:center;justify-content:center;gap:5px">
+          <span class="material-symbols-outlined" style="font-size:1rem;color:var(--color-gold)">schedule</span>
+          <span>معك وقت يسير؟ اقرأ وردك بالدقائق:</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
+          <button class="chip time-wird-chip" onclick="App.startTimedWirdSession(2)" title="قراءة صفحة واحدة في دقيقتين">
+            <span>⏱️ دقيقتان (صفحة)</span>
+          </button>
+          <button class="chip time-wird-chip" onclick="App.startTimedWirdSession(5)" title="قراءة صفحتين في ٥ دقائق">
+            <span>⏱️ ٥ دقائق (صفحتان)</span>
+          </button>
+          <button class="chip time-wird-chip" onclick="App.startTimedWirdSession(10)" title="قراءة ٤ صفحات في ١٠ دقائق">
+            <span>⏱️ ١٠ دقائق (٤ صفحات)</span>
+          </button>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -125,6 +145,32 @@ export function renderHome() {
     <div style="display:flex;align-items:center;gap:2px;color:var(--color-gold);font-size:0.8rem;font-weight:700;flex-shrink:0">
       <span>ضبط</span>
       <span class="material-symbols-outlined rtl-flip" style="font-size:1.1rem">chevron_left</span>
+    </div>
+  </section>
+
+  <!-- ⑤ Soul Remedy Compass Card (بوصلة القلب وصيدلية الروح) -->
+  <section class="card animate-fadeInUp" style="animation-delay:115ms;background:linear-gradient(135deg, rgba(74,107,83,0.10) 0%, rgba(184,142,79,0.10) 100%);border:1px solid rgba(197,160,89,0.35);padding:var(--space-4)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3)">
+      <div style="display:flex;align-items:center;gap:var(--space-2)">
+        <div style="width:2.2rem;height:2.2rem;border-radius:50%;background:rgba(197,160,89,0.2);display:flex;align-items:center;justify-content:center;color:var(--color-gold)">
+          <span class="material-symbols-outlined icon-fill" style="font-size:1.3rem">favorite</span>
+        </div>
+        <div>
+          <h3 style="font-size:0.95rem;font-weight:700;color:var(--text-primary);margin:0">بوصلة القلب وصيدلية الروح</h3>
+          <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:2px">بماذا يشعر قلبك الآن؟ القرآن يواسيك ويداويك</div>
+        </div>
+      </div>
+      <span class="chip chip--gold" style="font-size:0.65rem;padding:2px 8px">طب القلوب 🌿</span>
+    </div>
+
+    <!-- Emotion Selector Chips -->
+    <div class="soul-remedy-pills-row">
+      ${SOUL_REMEDIES.map(r => `
+        <button class="soul-remedy-pill" onclick="App.openSoulRemedyModal('${r.id}')" title="${r.title}">
+          <span style="font-size:1.15rem">${r.emoji}</span>
+          <span style="font-weight:600">${r.emotion}</span>
+        </button>
+      `).join('')}
     </div>
   </section>
 

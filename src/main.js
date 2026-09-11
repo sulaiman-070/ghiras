@@ -5,11 +5,12 @@
 
 import { State } from './state.js';
 import { renderHome }       from './screens/home.js';
-import { renderWird, setWirdTab } from './screens/wird.js';
+import { renderWird, setWirdTab, setMemorizationMode, isMemorizationActive } from './screens/wird.js';
 import { renderGarden }     from './screens/garden.js';
 import { renderSuhba }      from './screens/suhba.js';
 import { renderProfile }    from './screens/profile.js';
 import { renderOnboarding, onboardingStepData } from './screens/onboarding.js';
+import { SOUL_REMEDIES, getSoulRemedy } from './data/remedies.js';
 import {
   getSurahById,
   getSurah,
@@ -1628,8 +1629,309 @@ function selectReciter(reciterId) {
 
   // Re-render if currently on profile screen to reflect new reciter in settings
   if (_currentScreen === 'profile') {
-    renderCurrentScreen();
+    navigate(_currentScreen);
   }
+}
+
+// ── State for Signature Features ──────────────────────────
+let _remedyCounters = {};
+let _timedWirdState = {
+  timerId: null,
+  remainingSeconds: 0,
+  targetPages: 1,
+  startPage: 1,
+  endPage: 1,
+  minutes: 5
+};
+
+// ── Feature 1: Soul Remedy Compass (بوصلة القلب وصيدلية الروح) ─────
+function openSoulRemedyModal(emotionId) {
+  const remedy = getSoulRemedy(emotionId);
+  if (!remedy) return;
+
+  if (_remedyCounters[emotionId] === undefined) {
+    _remedyCounters[emotionId] = 0;
+  }
+  const currentCount = _remedyCounters[emotionId];
+  const isCompleted = currentCount >= remedy.actionCount;
+  const n = State.toArabicNum;
+
+  openModal(`
+    <div class="soul-remedy-modal-card">
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:2.2rem">${remedy.emoji}</span>
+          <div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <h3 style="font-size:1.15rem;font-weight:700;color:var(--text-primary);margin:0">${remedy.title}</h3>
+              <span class="chip chip--gold" style="font-size:0.65rem;padding:2px 7px">${remedy.tag}</span>
+            </div>
+            <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:2px">
+              دواءٌ قرآني لحالة: <strong style="color:var(--color-gold)">${remedy.emotion}</strong>
+            </div>
+          </div>
+        </div>
+        <button onclick="App.closeModal()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <!-- Ayah Display Box -->
+      <div class="soul-remedy-ayah-box">
+        <div style="font-size:0.75rem;color:var(--mushaf-gold-dark);font-weight:700;margin-bottom:8px">
+          سورة ${remedy.surahName} • آية ${n(remedy.ayahNumber)}
+        </div>
+        <div class="soul-remedy-ayah-text">
+          ﴿ ${remedy.ayahText} ﴾
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:var(--space-2);flex-wrap:wrap">
+          <button class="btn btn--sm" style="background:var(--color-primary);color:var(--color-gold);border:1px solid var(--color-gold);border-radius:var(--radius-pill);font-size:0.75rem;padding:5px 12px;cursor:pointer" onclick="App.playAyahContinuous(${remedy.surahNumber}, ${remedy.ayahNumber})">
+            <span class="material-symbols-outlined icon-fill" style="font-size:1rem">play_circle</span>
+            <span>استمع للتلاوة</span>
+          </button>
+          <button class="btn btn--sm btn--secondary" style="border-radius:var(--radius-pill);font-size:0.75rem;padding:5px 12px;cursor:pointer" onclick="App.goToRemedyAyahInMushaf(${remedy.page}, ${remedy.surahNumber}, ${remedy.ayahNumber})">
+            <span class="material-symbols-outlined" style="font-size:1rem">auto_stories</span>
+            <span>افتح سياقها بالمصحف (ص ${n(remedy.page)})</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Reflection Balm -->
+      <div class="soul-remedy-reflection-box">
+        <div style="font-weight:700;color:var(--color-sage);margin-bottom:4px;display:flex;align-items:center;gap:4px">
+          <span class="material-symbols-outlined" style="font-size:1rem">nature_people</span>
+          <span>ومضة بلسم لقلبك:</span>
+        </div>
+        <div>${remedy.reflection}</div>
+      </div>
+
+      <!-- 60-Second Micro-Action -->
+      <div class="soul-remedy-action-box">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:0.8rem;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:4px">
+            <span class="material-symbols-outlined" style="font-size:1rem;color:var(--color-gold)">timer</span>
+            ${remedy.actionLabel}
+          </span>
+          <span style="font-size:0.72rem;color:var(--color-gold);font-weight:700">
+            ${isCompleted ? '✓ اكتمل الورد' : `${n(currentCount)} من ${n(remedy.actionCount)}`}
+          </span>
+        </div>
+        <div style="font-size:0.95rem;font-weight:700;color:var(--mushaf-gold-dark);text-align:center;padding:4px 0;line-height:1.6">
+          "${remedy.actionDua}"
+        </div>
+        <button class="remedy-counter-btn" id="remedy-btn-${remedy.id}" onclick="App.incrementRemedyCounter('${remedy.id}', ${remedy.actionCount})">
+          <span>${isCompleted ? '✨ مبارك! تقبل الله منك وطمأن فؤادك' : 'انقر مع كل ترديدة للتسبيح'}</span>
+          <span style="background:rgba(255,255,255,0.15);padding:2px 8px;border-radius:var(--radius-full);font-size:0.85rem">
+            ${isCompleted ? '✓' : `${n(currentCount)} / ${n(remedy.actionCount)}`}
+          </span>
+        </button>
+      </div>
+
+      <div style="display:flex;justify-content:center">
+        <button class="btn btn--ghost" style="color:var(--text-muted);font-size:0.8rem" onclick="App.closeModal()">
+          إغلاق النافذة
+        </button>
+      </div>
+    </div>
+  `);
+}
+
+function incrementRemedyCounter(emotionId, targetCount) {
+  _remedyCounters[emotionId] = (_remedyCounters[emotionId] || 0) + 1;
+  const count = _remedyCounters[emotionId];
+
+  if (count === targetCount) {
+    playAlarmChime();
+    State.addXP(25);
+    State.showToast('🌿 تقبل الله منك! غرسة مباركة وطمأنينة لقلبك (+٢٥ XP)');
+  }
+  openSoulRemedyModal(emotionId);
+}
+
+function goToRemedyAyahInMushaf(page, surahNumber, ayahNumber) {
+  closeModal();
+  navigate('wird');
+  goToPage(page);
+  setTimeout(() => {
+    highlightPlayingAyah(surahNumber, ayahNumber);
+  }, 400);
+}
+
+// ── Feature 2: Time-Based Smart Wird Session (اقرأ حسب وقتك) ──────
+function startTimedWirdSession(minutes) {
+  const pagesPerMin = { 2: 1, 5: 2, 10: 4 };
+  const targetPages = pagesPerMin[minutes] || 2;
+  const s = State.get();
+  const startPage = Math.max(1, Math.min(604, s.quranProgress.currentPage || 1));
+  const endPage = Math.min(604, startPage + targetPages - 1);
+  const n = State.toArabicNum;
+
+  _timedWirdState = {
+    minutes,
+    targetPages,
+    startPage,
+    endPage,
+    remainingSeconds: minutes * 60,
+    timerId: null
+  };
+
+  navigate('wird');
+  goToPage(startPage);
+
+  let bar = document.getElementById('timed-wird-floating-bar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'timed-wird-floating-bar';
+    bar.className = 'timed-wird-floating-bar';
+    document.body.appendChild(bar);
+  }
+
+  updateTimedWirdBarUI();
+
+  if (_timedWirdState.timerId) clearInterval(_timedWirdState.timerId);
+  _timedWirdState.timerId = setInterval(() => {
+    _timedWirdState.remainingSeconds--;
+    if (_timedWirdState.remainingSeconds <= 0) {
+      stopTimedWirdSession(true);
+    } else {
+      updateTimedWirdBarUI();
+    }
+  }, 1000);
+
+  State.showToast(`⏱️ بدأت جلسة الـ ${n(minutes)} دقائق! الهدف: ص ${n(startPage)} إلى ص ${n(endPage)}`);
+}
+
+function updateTimedWirdBarUI() {
+  const bar = document.getElementById('timed-wird-floating-bar');
+  if (!bar) return;
+
+  const n = State.toArabicNum;
+  const sec = _timedWirdState.remainingSeconds;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  const timeFormatted = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+
+  bar.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="timed-wird-clock">
+        <span class="material-symbols-outlined" style="font-size:1.2rem;color:var(--color-gold);animation:ringBell 1.5s infinite">timer</span>
+        <span>${State.toArabicNum(timeFormatted)}</span>
+      </div>
+      <div style="font-size:0.75rem;color:#D4BA94">
+        الهدف: <strong>ص ${n(_timedWirdState.startPage)} - ص ${n(_timedWirdState.endPage)}</strong>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <button class="btn btn--sm" style="background:var(--color-gold);color:#1A1208;border:none;border-radius:var(--radius-pill);font-weight:700;font-size:0.75rem;padding:4px 10px;cursor:pointer" onclick="App.stopTimedWirdSession(true)">
+        أنهيت الورد ✓
+      </button>
+      <button onclick="App.stopTimedWirdSession(false)" style="background:none;border:none;color:#A89582;cursor:pointer;padding:2px" title="إلغاء المؤقت">
+        <span class="material-symbols-outlined" style="font-size:1.1rem">close</span>
+      </button>
+    </div>
+  `;
+}
+
+function stopTimedWirdSession(finished = false) {
+  if (_timedWirdState.timerId) {
+    clearInterval(_timedWirdState.timerId);
+    _timedWirdState.timerId = null;
+  }
+  const bar = document.getElementById('timed-wird-floating-bar');
+  if (bar) bar.remove();
+
+  if (finished) {
+    playAlarmChime();
+    const xpReward = _timedWirdState.minutes * 20;
+    State.addXP(xpReward);
+    State.set(s => {
+      s.quranProgress.todayPages = (s.quranProgress.todayPages || 0) + _timedWirdState.targetPages;
+      s.quranProgress.currentPage = Math.min(604, _timedWirdState.endPage + 1);
+    });
+
+    const n = State.toArabicNum;
+    openModal(`
+      <div style="text-align:center;padding:var(--space-4)">
+        <div style="font-size:3.5rem;margin-bottom:var(--space-2)">🎉</div>
+        <h3 style="font-size:var(--font-size-2xl);font-weight:700;color:var(--text-primary);margin-bottom:var(--space-2)">
+          هنيئاً لك الورد المبارك!
+        </h3>
+        <p style="font-size:var(--font-size-base);color:var(--text-secondary);line-height:1.8;margin-bottom:var(--space-4)">
+          في <strong>${n(_timedWirdState.minutes)} دقائق</strong> فقط؛ أتممت قراءة <strong>${n(_timedWirdState.targetPages)} صفحات</strong> بتدبر وسكينة وغرست أجوراً عظيمة تظللك في دنياك وآخرتك.
+        </p>
+        <div class="chip chip--gold" style="font-size:0.85rem;padding:6px 16px;margin:0 auto var(--space-4) auto;display:inline-flex">
+          ⭐ حصلت على +${n(xpReward)} نقطة خبرة (XP)
+        </div>
+        <button class="btn btn--primary" onclick="App.closeModal()" style="width:100%">
+          الحمد لله 🌿
+        </button>
+      </div>
+    `);
+  }
+}
+
+// ── Feature 4: Memorization Masking (اختبار الحفظ) ───────────
+function toggleMemorizationMode() {
+  const active = !isMemorizationActive();
+  setMemorizationMode(active);
+  if (_currentScreen === 'wird') {
+    navigate(_currentScreen);
+  }
+  State.showToast(active ? '🧠 تم تفعيل وضع اختبار الحفظ والتسميع' : '📖 تم العودة لوضع القراءة العادي');
+}
+
+function revealMaskedWord(el, event) {
+  if (event) event.stopPropagation();
+  if (el) el.classList.toggle('revealed');
+}
+
+function revealAllMaskedWords() {
+  document.querySelectorAll('.masked-word').forEach(el => el.classList.add('revealed'));
+  State.showToast('✨ تم كشف كل الكلمات للتأكد من حفظك');
+}
+
+// ── Feature 3: Khatma Certificate Preview ──────────────────
+function openKhatmaCertificate() {
+  const s = State.get();
+  const n = State.toArabicNum;
+  const curPage = Math.max(1, Math.min(604, s.quranProgress.currentPage || 1));
+  const khatmaPct = Math.min(100, Math.round((curPage / 604) * 100));
+
+  openModal(`
+    <div style="text-align:center;direction:rtl;padding:var(--space-2)">
+      <!-- Certificate Frame -->
+      <div style="background:radial-gradient(circle, #FFFDF9 0%, #F5EDE0 100%);border:2.5px solid var(--color-gold);border-radius:var(--radius-2xl);padding:var(--space-5);box-shadow:0 12px 40px rgba(0,0,0,0.15);position:relative">
+        <div style="font-size:0.8rem;color:var(--color-gold);font-weight:700;letter-spacing:1px;margin-bottom:6px">
+          بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ
+        </div>
+        <div style="font-size:1.5rem;font-weight:800;color:#2C2219;font-family:var(--font-quran);margin-bottom:var(--space-3)">
+          شهادة ختم القرآن الكريم المبارك 📜
+        </div>
+        <p style="font-size:0.85rem;color:#6E6053;line-height:1.8;margin-bottom:var(--space-3)">
+          تشهد منصة <strong>غِراس</strong> للعادات والقرآن بأن القارئ المبارك:
+        </p>
+        <div style="font-size:1.5rem;font-weight:800;color:var(--color-gold);font-family:var(--font-quran);padding:6px 0;margin-bottom:var(--space-3);border-bottom:1.5px dashed rgba(197,160,89,0.5)">
+          ${s.user.name || 'سليمان'}
+        </div>
+        <p style="font-size:0.85rem;color:#4A3B2C;line-height:1.8;margin-bottom:var(--space-4)">
+          يسير بخطى مباركة في تلاوة وتدبر آيات الذكر الحكيم، وقد أتم حتى الآن قراءة <strong>${n(curPage)} صفحة</strong> بنسبة إنجاز <strong>(${n(khatmaPct)}٪)</strong>.
+        </p>
+        <div style="font-size:0.75rem;color:#8C7355;font-style:italic;margin-bottom:var(--space-4);background:rgba(197,160,89,0.1);padding:8px;border-radius:var(--radius-lg)">
+          "اللهم اجعل القرآن العظيم ربيع قلوبنا، ونور صدورنا، وجلاء أحزاننا، وذهاب همومنا"
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.72rem;color:#A89582;border-top:1px solid rgba(197,160,89,0.3);padding-top:8px">
+          <span>🌿 تطبيق غِراس القرآني</span>
+          <span>📅 ${new Date().toLocaleDateString('ar-EG')}</span>
+        </div>
+      </div>
+      <div style="margin-top:var(--space-4)">
+        <button class="btn btn--secondary" onclick="App.closeModal()" style="width:100%">
+          إغلاق
+        </button>
+      </div>
+    </div>
+  `);
 }
 
 function openFontSize() {
@@ -1801,6 +2103,16 @@ window.App = {
   setFontSize,
   confirmReset,
   doReset,
+  // 4 Signature Features (الابتكارات الكبرى)
+  openSoulRemedyModal,
+  incrementRemedyCounter,
+  goToRemedyAyahInMushaf,
+  startTimedWirdSession,
+  stopTimedWirdSession,
+  toggleMemorizationMode,
+  revealMaskedWord,
+  revealAllMaskedWords,
+  openKhatmaCertificate,
   // Modal
   openModal,
   closeModal,
