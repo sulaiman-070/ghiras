@@ -1846,39 +1846,129 @@ body.mushaf-focus-active .mushaf-exit-focus-btn {
 }
 
 /* ═════════════════════════════════════════════════
-   FEATURE 1: SOUL REMEDY COMPASS (بوصلة القلب)
+/* ═════════════════════════════════════════════════
+   FEATURE 1: SOUL REMEDY COMPASS (بوصلة القلب وصيدلية الروح)
+   Zero-Scroll Responsive Grid - All 7 remedies visible at a glance
    ═════════════════════════════════════════════════ */
-.soul-remedy-pills-row {
-  display: flex;
-  align-items: center;
+.soul-remedy-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
-  overflow-x: auto;
-  padding: 4px 2px 8px 2px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-gold) transparent;
+  width: 100%;
 }
 
+@media (min-width: 640px) {
+  .soul-remedy-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 960px) {
+  .soul-remedy-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.soul-remedy-tile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--color-bg-card, #FFFFFF);
+  border: 1px solid rgba(197, 160, 89, 0.32);
+  padding: 8px 12px;
+  border-radius: var(--radius-xl);
+  cursor: pointer;
+  text-align: right;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 6px rgba(44, 34, 25, 0.03);
+  position: relative;
+  overflow: hidden;
+}
+
+.soul-remedy-tile:hover,
+.soul-remedy-tile:active {
+  border-color: var(--color-gold);
+  background: linear-gradient(135deg, rgba(255, 253, 249, 1) 0%, rgba(245, 237, 224, 0.95) 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(184, 142, 79, 0.18);
+}
+
+.soul-remedy-tile__emoji {
+  font-size: 1.35rem;
+  line-height: 1;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.06));
+}
+
+.soul-remedy-tile__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.soul-remedy-tile__emotion {
+  font-size: 0.825rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.soul-remedy-tile__tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--color-gold-dark, #8C6D38);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 7th item spans full width on 2-column mobile layout */
+.soul-remedy-tile--featured {
+  grid-column: span 2;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(197, 160, 89, 0.09) 0%, rgba(74, 107, 83, 0.09) 100%);
+  border-color: rgba(197, 160, 89, 0.45);
+}
+
+.soul-remedy-tile--featured .soul-remedy-tile__meta {
+  flex: 0 1 auto;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (min-width: 640px) {
+  .soul-remedy-tile--featured {
+    grid-column: span 1;
+    justify-content: flex-start;
+  }
+  .soul-remedy-tile--featured .soul-remedy-tile__meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+}
+
+/* Legacy fallback */
+.soul-remedy-pills-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .soul-remedy-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   background: var(--color-bg-card);
-  border: 1.5px solid rgba(197, 160, 89, 0.4);
-  padding: 8px 14px;
+  border: 1px solid rgba(197, 160, 89, 0.35);
+  padding: 6px 12px;
   border-radius: var(--radius-full);
   font-size: 0.8rem;
-  color: var(--text-primary);
   cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: var(--shadow-sm);
-}
-
-.soul-remedy-pill:hover {
-  border-color: var(--color-gold);
-  background: rgba(197, 160, 89, 0.15);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(197, 160, 89, 0.2);
 }
 
 .soul-remedy-modal-card {

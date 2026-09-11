@@ -163,12 +163,17 @@ export function renderHome() {
       <span class="chip chip--gold" style="font-size:0.65rem;padding:2px 8px">طب القلوب 🌿</span>
     </div>
 
-    <!-- Emotion Selector Chips -->
-    <div class="soul-remedy-pills-row">
-      ${SOUL_REMEDIES.map(r => `
-        <button class="soul-remedy-pill" onclick="App.openSoulRemedyModal('${r.id}')" title="${r.title}">
-          <span style="font-size:1.15rem">${r.emoji}</span>
-          <span style="font-weight:600">${r.emotion}</span>
+    <!-- Emotion Selector Grid (Zero Horizontal Scroll - All visible at a glance) -->
+    <div class="soul-remedy-grid">
+      ${SOUL_REMEDIES.map((r, i) => `
+        <button class="soul-remedy-tile ${i === SOUL_REMEDIES.length - 1 ? 'soul-remedy-tile--featured' : ''}"
+                onclick="App.openSoulRemedyModal('${r.id}')"
+                title="${r.title}">
+          <span class="soul-remedy-tile__emoji">${r.emoji}</span>
+          <div class="soul-remedy-tile__meta">
+            <span class="soul-remedy-tile__emotion">${r.emotion}</span>
+            <span class="soul-remedy-tile__tag">${r.tag}</span>
+          </div>
         </button>
       `).join('')}
     </div>
