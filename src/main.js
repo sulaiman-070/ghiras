@@ -5,7 +5,17 @@
 
 import { State } from './state.js';
 import { renderHome }       from './screens/home.js';
-import { renderWird, setWirdTab, setMemorizationMode, isMemorizationActive } from './screens/wird.js';
+import {
+  renderWird,
+  setWirdTab,
+  setMemorizationMode,
+  isMemorizationActive,
+  setAthkarCategory,
+  setPrayerSub,
+  setAthkarSearch,
+  renderAthkarTabContent
+} from './screens/wird.js';
+import { ATHKAR_DUAS, ATHKAR_CATEGORIES } from './data/athkar_duas.js';
 import { renderGarden }     from './screens/garden.js';
 import { renderSuhba }      from './screens/suhba.js';
 import { renderProfile }    from './screens/profile.js';
@@ -1076,33 +1086,143 @@ function bookmarkAyah(surahId, ayahNum) {
   State.showToast('🔖 تم حفظ الفاصل في المصحف');
 }
 
-// Athkar counter
-function countThikr(idx) {
-  if (!_athkarCounts[idx]) _athkarCounts[idx] = 0;
-  const thikr = QURAN_DATA.athkar.morning[idx];
-  if (!thikr) return;
-  if (_athkarCounts[idx] >= thikr.count) return;
-
-  _athkarCounts[idx]++;
-  const disp = document.getElementById(`count-display-${idx}`);
-  const n = State.toArabicNum;
-  if (disp) disp.textContent = `${n(_athkarCounts[idx])} / ${n(thikr.count)}`;
-
-  // Visual feedback on completion
-  if (_athkarCounts[idx] >= thikr.count) {
-    const card = document.getElementById(`thikr-${idx}`);
-    if (card) {
-      card.style.background = 'var(--color-bg-sage)';
-      card.style.borderColor = 'var(--color-sage-light)';
-    }
-    State.showToast('✅ أتممت هذا الذكر — بارك الله فيك');
+// ── Athkar & Prophetic Duas Hub Handlers ───────────────────
+function switchAthkarCategory(catId) {
+  setAthkarCategory(catId);
+  setAthkarSearch('');
+  const athkarTab = document.getElementById('wird-athkar-tab');
+  if (athkarTab) {
+    athkarTab.innerHTML = renderAthkarTabContent();
   }
 }
 
-function completeAthkar() {
-  State.completeHabit('morning-athkar', 'min');
-  State.showToast('🤲 أتممت أذكار الصباح — بارك الله فيك');
-  navigate(_currentScreen);
+function switchPrayerSub(sub) {
+  setPrayerSub(sub);
+  const athkarTab = document.getElementById('wird-athkar-tab');
+  if (athkarTab) {
+    athkarTab.innerHTML = renderAthkarTabContent();
+  }
+}
+
+function onAthkarSearch(query) {
+  setAthkarSearch(query);
+  const athkarTab = document.getElementById('wird-athkar-tab');
+  if (athkarTab) {
+    athkarTab.innerHTML = renderAthkarTabContent();
+    const inp = document.getElementById('athkar-search-input');
+    if (inp) {
+      inp.focus();
+      inp.setSelectionRange(inp.value.length, inp.value.length);
+    }
+  }
+}
+
+function clearAthkarSearch() {
+  setAthkarSearch('');
+  const athkarTab = document.getElementById('wird-athkar-tab');
+  if (athkarTab) {
+    athkarTab.innerHTML = renderAthkarTabContent();
+  }
+}
+
+function countThikr(thikrId, targetCount) {
+  let current = 0;
+  State.set(s => {
+    s.athkarCounters = s.athkarCounters || {};
+    current = (s.athkarCounters[thikrId] || 0);
+    if (current < targetCount) {
+      current++;
+      s.athkarCounters[thikrId] = current;
+    }
+  });
+
+  const n = State.toArabicNum;
+  const btn = document.getElementById(`thikr-btn-${thikrId}`);
+  const badge = document.getElementById(`thikr-count-${thikrId}`);
+  const label = document.getElementById(`thikr-label-${thikrId}`);
+  const card = document.getElementById(`thikr-card-${thikrId}`);
+
+  if (badge) {
+    badge.textContent = current >= targetCount ? `تم (${n(targetCount)})` : `${n(current)} / ${n(targetCount)}`;
+  }
+
+  if (current >= targetCount) {
+    if (btn) btn.classList.add('completed');
+    if (label) label.textContent = 'تم بحمد الله';
+    if (card) {
+      card.style.borderColor = 'var(--color-sage)';
+      card.style.background = 'linear-gradient(180deg, #FFFFFF 0%, rgba(74, 107, 83, 0.05) 100%)';
+    }
+    State.showToast('✅ أتممت هذا الذكر المبارك — تقبل الله منك ✨');
+  }
+}
+
+function resetThikr(thikrId) {
+  State.set(s => {
+    s.athkarCounters = s.athkarCounters || {};
+    s.athkarCounters[thikrId] = 0;
+  });
+
+  const targetItem = ATHKAR_DUAS.find(d => d.id === thikrId);
+  const target = targetItem ? targetItem.count : 1;
+  const n = State.toArabicNum;
+
+  const btn = document.getElementById(`thikr-btn-${thikrId}`);
+  const badge = document.getElementById(`thikr-count-${thikrId}`);
+  const label = document.getElementById(`thikr-label-${thikrId}`);
+  const card = document.getElementById(`thikr-card-${thikrId}`);
+
+  if (btn) btn.classList.remove('completed');
+  if (label) label.textContent = 'انقر للعد والتكرار';
+  if (badge) badge.textContent = `٠ / ${n(target)}`;
+  if (card) {
+    card.style.borderColor = '';
+    card.style.background = '';
+  }
+
+  State.showToast('🔄 تم تصفير العدّاد');
+}
+
+function copyThikr(thikrId) {
+  const item = ATHKAR_DUAS.find(d => d.id === thikrId);
+  if (!item) return;
+
+  const copyText = `${item.title}\n\n${item.text}\n\n📌 فيمَ يفيد وفضله: ${item.benefit}${item.source ? `\n📖 المصدر: ${item.source}` : ''}\n\n— تطبيق غِراس (Ghiras)`;
+
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(copyText).then(() => {
+      State.showToast('📋 تم نسخ الذكر وفضله كاملاً');
+    }).catch(() => {
+      State.showToast('📋 تم النسخ');
+    });
+  } else {
+    State.showToast('📋 تم النسخ');
+  }
+}
+
+function completeAthkar(habitId = 'morning-athkar') {
+  const habitKey = habitId === 'evening-athkar' ? 'evening-athkar' : 'morning-athkar';
+  const label = habitKey === 'evening-athkar' ? 'أذكار المساء' : 'أذكار الصباح';
+
+  State.completeHabit(habitKey, 'min');
+  State.showToast(`🤲 أتممت ${label} — تقبّل الله منك وكتب أجرك ✨`);
+
+  const athkarTab = document.getElementById('wird-athkar-tab');
+  if (athkarTab) {
+    athkarTab.innerHTML = renderAthkarTabContent();
+  }
+}
+
+function openAthkarCategory(catId, prayerSub = null) {
+  setAthkarCategory(catId);
+  if (prayerSub) setPrayerSub(prayerSub);
+  setAthkarSearch('');
+  navigate('wird');
+  switchWirdTab('athkar');
+  const athkarTab = document.getElementById('wird-athkar-tab');
+  if (athkarTab) {
+    athkarTab.innerHTML = renderAthkarTabContent();
+  }
 }
 
 // ── Garden Actions ─────────────────────────────────────────
@@ -2073,8 +2193,16 @@ window.App = {
   markPageRead,
   openTafseeer,
   bookmarkAyah,
+  // Athkar & Prophetic Duas Hub
+  switchAthkarCategory,
+  switchPrayerSub,
+  onAthkarSearch,
+  clearAthkarSearch,
   countThikr,
+  resetThikr,
+  copyThikr,
   completeAthkar,
+  openAthkarCategory,
   // Garden
   waterGarden,
   shareGarden,

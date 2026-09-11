@@ -179,6 +179,53 @@ export function renderHome() {
     </div>
   </section>
 
+  <!-- ⑥ Athkar & Prophetic Duas Hub Showcase Card (حصن الأذكار وصحيح الأدعية) -->
+  <section class="card animate-fadeInUp" style="animation-delay:118ms;background:linear-gradient(135deg, rgba(184,142,79,0.12) 0%, rgba(74,107,83,0.12) 100%);border:1.5px solid rgba(197,160,89,0.4);padding:var(--space-4)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3)">
+      <div style="display:flex;align-items:center;gap:var(--space-2)">
+        <div style="width:2.2rem;height:2.2rem;border-radius:50%;background:rgba(197,160,89,0.25);display:flex;align-items:center;justify-content:center;color:var(--color-gold)">
+          <span class="material-symbols-outlined icon-fill" style="font-size:1.3rem">auto_awesome</span>
+        </div>
+        <div>
+          <h3 style="font-size:0.95rem;font-weight:700;color:var(--text-primary);margin:0">حصن الأذكار وصحيح الأدعية النبوية</h3>
+          <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:2px">أذكار موثقة بالتشكيل مع فضائلها (في مو يفيد) وعدّاد تفاعلي</div>
+        </div>
+      </div>
+      <button class="section-link" onclick="App.openAthkarCategory('morning')">
+        <span>فتح الحصن</span>
+        <span class="material-symbols-outlined rtl-flip" style="font-size:0.875rem;color:var(--color-gold)">arrow_forward</span>
+      </button>
+    </div>
+
+    <!-- Category Shortcuts Row -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px">
+      <button class="chip" onclick="App.openAthkarCategory('morning')" style="cursor:pointer;padding:8px 10px;justify-content:center;gap:6px;background:var(--color-bg-card);border:1px solid rgba(197,160,89,0.3)">
+        <span>🌅</span>
+        <span style="font-weight:700;font-size:0.78rem">أذكار الصباح</span>
+      </button>
+      <button class="chip" onclick="App.openAthkarCategory('evening')" style="cursor:pointer;padding:8px 10px;justify-content:center;gap:6px;background:var(--color-bg-card);border:1px solid rgba(197,160,89,0.3)">
+        <span>🌇</span>
+        <span style="font-weight:700;font-size:0.78rem">أذكار المساء</span>
+      </button>
+      <button class="chip" onclick="App.openAthkarCategory('prayers')" style="cursor:pointer;padding:8px 10px;justify-content:center;gap:6px;background:var(--color-bg-card);border:1px solid rgba(197,160,89,0.3)">
+        <span>🕌</span>
+        <span style="font-weight:700;font-size:0.78rem">بعد الصلوات</span>
+      </button>
+      <button class="chip" onclick="App.openAthkarCategory('sustenance')" style="cursor:pointer;padding:8px 10px;justify-content:center;gap:6px;background:var(--color-bg-card);border:1px solid rgba(197,160,89,0.3)">
+        <span>🌾</span>
+        <span style="font-weight:700;font-size:0.78rem">الرزق والديْن</span>
+      </button>
+      <button class="chip" onclick="App.openAthkarCategory('forgiveness')" style="cursor:pointer;padding:8px 10px;justify-content:center;gap:6px;background:var(--color-bg-card);border:1px solid rgba(197,160,89,0.3)">
+        <span>💎</span>
+        <span style="font-weight:700;font-size:0.78rem">محو الذنوب</span>
+      </button>
+      <button class="chip" onclick="App.openAthkarCategory('healing')" style="cursor:pointer;padding:8px 10px;justify-content:center;gap:6px;background:var(--color-bg-card);border:1px solid rgba(197,160,89,0.3)">
+        <span>🛡️</span>
+        <span style="font-weight:700;font-size:0.78rem">الشفاء والحفظ</span>
+      </button>
+    </div>
+  </section>
+
   <!-- ⑤ Active Habits -->
   ${activeHabits.length > 0 ? `
   <section class="animate-fadeInUp" style="animation-delay:120ms">
@@ -333,6 +380,11 @@ function renderHabitCard(habit) {
           <span class="material-symbols-outlined icon-fill" style="font-size:0.875rem;color:var(--color-gold)">eco</span>
           الحد الأدنى: ${habit.minGoal.label}
         </span>
+        ${(habit.id === 'morning-athkar' || habit.id === 'evening-athkar') ? `
+        <span class="chip chip--neutral" onclick="event.stopPropagation();App.openAthkarCategory('${habit.id === 'evening-athkar' ? 'evening' : 'morning'}')" style="cursor:pointer;font-size:0.68rem;padding:2px 7px;display:inline-flex;align-items:center;gap:3px;border-color:rgba(197,160,89,0.4)" title="فتح وقراءة الأذكار">
+          <span>🤲</span>
+          <span>فتح الأذكار</span>
+        </span>` : ''}
         ${streak > 0 ? `
         <span class="habit-card__streak">
           <span class="material-symbols-outlined icon-fill" style="font-size:0.875rem">local_fire_department</span>

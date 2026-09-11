@@ -2180,5 +2180,240 @@ body.mushaf-focus-active .mushaf-exit-focus-btn {
   box-shadow: 0 0 10px rgba(197, 160, 89, 0.5);
 }
 
+/* ═════════════════════════════════════════════════
+   FEATURE: COMPREHENSIVE ATHKAR & PROPHETIC DUAS HUB
+   (حصن الأذكار وصحيح الأدعية النبوية)
+   ═════════════════════════════════════════════════ */
+.athkar-nav-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: var(--space-3);
+}
 
+.athkar-cat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-bg-card, #FFFFFF);
+  border: 1px solid rgba(197, 160, 89, 0.35);
+  padding: 8px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 4px rgba(44, 34, 25, 0.03);
+}
 
+.athkar-cat-chip:hover {
+  border-color: var(--color-gold);
+  color: var(--color-primary);
+  background: rgba(197, 160, 89, 0.08);
+  transform: translateY(-1px);
+}
+
+.athkar-cat-chip.active {
+  background: linear-gradient(135deg, #2C2219 0%, #3D3024 100%);
+  color: #FFFFFF;
+  border-color: var(--color-gold);
+  box-shadow: 0 4px 12px rgba(44, 34, 25, 0.2);
+}
+
+.athkar-cat-chip.active .athkar-cat-icon {
+  color: var(--color-gold);
+}
+
+.athkar-subfilters-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 12px 0;
+  padding: 8px 10px;
+  background: rgba(197, 160, 89, 0.08);
+  border-radius: var(--radius-lg);
+  border: 1px dashed rgba(197, 160, 89, 0.35);
+}
+
+.athkar-subfilter-btn {
+  background: var(--color-bg-card);
+  border: 1px solid rgba(197, 160, 89, 0.3);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.athkar-subfilter-btn:hover {
+  border-color: var(--color-gold);
+  color: var(--text-primary);
+}
+
+.athkar-subfilter-btn.active {
+  background: var(--color-gold);
+  color: #FFFFFF;
+  border-color: var(--color-gold);
+}
+
+.thikr-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-bg-card);
+  border: 1px solid rgba(197, 160, 89, 0.3);
+  padding: 8px 12px;
+  border-radius: var(--radius-xl);
+  margin-bottom: var(--space-3);
+  box-shadow: var(--shadow-sm);
+}
+
+.thikr-search-input {
+  border: none;
+  background: transparent;
+  outline: none;
+  width: 100%;
+  font-family: var(--font-family);
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.thikr-card {
+  border: 1.5px solid rgba(197, 160, 89, 0.3) !important;
+  background: var(--color-bg-card, #FFFFFF) !important;
+  border-radius: var(--radius-xl) !important;
+  padding: var(--space-4) !important;
+  transition: all 0.22s ease;
+  position: relative;
+}
+
+.thikr-card:hover {
+  border-color: var(--color-gold) !important;
+  box-shadow: 0 6px 18px rgba(184, 142, 79, 0.12) !important;
+}
+
+.thikr-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.thikr-card-text {
+  font-family: var(--font-quran), 'Amiri', serif;
+  font-size: 1.25rem;
+  color: var(--text-primary);
+  line-height: 2.2;
+  text-align: right;
+  margin: 10px 0;
+  padding: 4px 0;
+  word-spacing: 2px;
+}
+
+.thikr-benefit-box {
+  background: linear-gradient(135deg, rgba(245, 237, 224, 0.45) 0%, rgba(234, 240, 234, 0.5) 100%);
+  border: 1px solid rgba(197, 160, 89, 0.3);
+  border-radius: var(--radius-lg);
+  padding: 10px 14px;
+  margin: 10px 0;
+  text-align: right;
+}
+
+.thikr-benefit-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-gold-dark, #8C6D38);
+  margin-bottom: 4px;
+}
+
+.thikr-benefit-desc {
+  font-size: 0.85rem;
+  color: #4A3B2C;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.thikr-source {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+  font-style: italic;
+}
+
+.thikr-counter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(197, 160, 89, 0.25);
+}
+
+.thikr-tap-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--color-bg-secondary);
+  border: 1.5px solid rgba(197, 160, 89, 0.4);
+  padding: 8px 14px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.thikr-tap-btn:hover {
+  background: rgba(197, 160, 89, 0.12);
+  border-color: var(--color-gold);
+  transform: translateY(-1px);
+}
+
+.thikr-tap-btn.completed {
+  background: linear-gradient(135deg, #4A6B53 0%, #35533D 100%);
+  color: #FFFFFF;
+  border-color: #4A6B53;
+}
+
+.thikr-badge-count {
+  background: rgba(197, 160, 89, 0.2);
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-gold-dark, #8C6D38);
+}
+
+.thikr-tap-btn.completed .thikr-badge-count {
+  background: rgba(255, 255, 255, 0.25);
+  color: #FFFFFF;
+}
+
+.thikr-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  background: var(--color-bg-card);
+  border: 1px solid rgba(197, 160, 89, 0.3);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.thikr-action-btn:hover {
+  color: var(--color-gold);
+  border-color: var(--color-gold);
+  background: rgba(197, 160, 89, 0.1);
+}

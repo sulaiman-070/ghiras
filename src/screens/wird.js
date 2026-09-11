@@ -14,10 +14,34 @@ import {
   isQuranLoaded,
   getReciter
 } from '../data/quran.js';
+import {
+  ATHKAR_CATEGORIES,
+  ATHKAR_DUAS,
+  getAthkarByCategory
+} from '../data/athkar_duas.js';
 
 let _activeTab = 'quran';       // 'quran' | 'athkar'
 let _readingMode = 'page';      // 'page' (1..604) | 'surah' (1..114)
 let _isMemorizationMode = false; // Memorization masking mode
+let _activeAthkarCat = 'morning';
+let _activePrayerSub = 'all';
+let _athkarSearchQuery = '';
+
+export function setAthkarCategory(catId) {
+  _activeAthkarCat = catId;
+}
+
+export function setPrayerSub(sub) {
+  _activePrayerSub = sub;
+}
+
+export function setAthkarSearch(q) {
+  _athkarSearchQuery = q;
+}
+
+export function getAthkarState() {
+  return { cat: _activeAthkarCat, prayerSub: _activePrayerSub, search: _athkarSearchQuery };
+}
 
 export function setMemorizationMode(val) {
   _isMemorizationMode = val;
@@ -276,41 +300,10 @@ export function renderWird() {
   </div>
 
   <!-- ═════════════════════════════════════════════════
-       ATHKAR TAB
+       ATHKAR & DUAS TAB (حصن الأذكار وجامع الأدعية النبوية)
        ═════════════════════════════════════════════════ -->
   <div id="wird-athkar-tab" style="${_activeTab === 'athkar' ? '' : 'display:none'}">
-    <div style="display:flex;flex-direction:column;gap:var(--space-4)">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <div>
-          <h2 style="font-size:var(--font-size-lg);font-weight:700;color:var(--text-primary)">أذكار الصباح والمأثورات</h2>
-          <p style="font-size:var(--font-size-xs);color:var(--text-muted);margin-top:2px">حصن المسلم اليومي بأذكار ميسرة</p>
-        </div>
-        <button class="btn btn--sage btn--sm" onclick="App.completeAthkar()" style="width:auto">
-          <span class="material-symbols-outlined icon-fill">done_all</span>
-          أتممتها جميعاً
-        </button>
-      </div>
-
-      ${athkarMorning.map((thikr, idx) => `
-        <div id="thikr-${idx}" class="card" style="cursor:pointer;transition:all 0.2s" onclick="App.countThikr(${idx})">
-          <p style="font-family:var(--font-quran);font-size:1.25rem;color:var(--text-primary);line-height:2;text-align:right;margin-bottom:var(--space-3)">
-            ${thikr.text}
-          </p>
-          <div style="display:flex;align-items:center;justify-content:space-between">
-            <span class="chip chip--neutral" style="font-size:0.75rem">${thikr.category}</span>
-            <div id="counter-${idx}" style="display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-4);background:var(--color-bg-secondary);border-radius:var(--radius-full);border:1px solid var(--color-border)">
-              <span class="material-symbols-outlined" style="font-size:1.1rem;color:var(--color-gold)">touch_app</span>
-              <span id="count-display-${idx}" style="font-size:var(--font-size-md);font-weight:700;color:var(--text-primary)">٠ / ${toArabicNum(thikr.count)}</span>
-            </div>
-          </div>
-        </div>
-      `).join('')}
-
-      <button class="btn btn--sage" onclick="App.completeAthkar()" style="margin-top:var(--space-2)">
-        <span class="material-symbols-outlined icon-fill">check_circle</span>
-        سجّل إتمام أذكار الصباح في عاداتك
-      </button>
-    </div>
+    ${renderAthkarTabContent()}
   </div>
 
   <!-- ═════════════════════════════════════════════════
@@ -462,4 +455,225 @@ export function setReadingMode(mode) {
 
 function toArabicNum(n) {
   return String(n).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
+}
+
+export function renderAthkarTabContent() {
+  const n = toArabicNum;
+  const s = State.get();
+  const counters = s.athkarCounters || {};
+
+  // Determine which items to display
+  let displayItems = [];
+  let isSearchActive = Boolean(_athkarSearchQuery && _athkarSearchQuery.trim());
+
+  if (isSearchActive) {
+    const q = _athkarSearchQuery.trim().toLowerCase();
+    displayItems = ATHKAR_DUAS.filter(item => {
+      return (item.title && item.title.toLowerCase().includes(q)) ||
+             (item.text && item.text.toLowerCase().includes(q)) ||
+             (item.benefit && item.benefit.toLowerCase().includes(q)) ||
+             (item.subCategory && item.subCategory.toLowerCase().includes(q));
+    });
+  } else {
+    displayItems = ATHKAR_DUAS.filter(item => {
+      if (item.category !== _activeAthkarCat) return false;
+      if (_activeAthkarCat === 'prayers' && _activePrayerSub !== 'all') {
+        return item.subCategory === _activePrayerSub || item.subCategory === 'جميع الصلوات';
+      }
+      return true;
+    });
+  }
+
+  // Active Category info
+  const activeCatMeta = ATHKAR_CATEGORIES.find(c => c.id === _activeAthkarCat) || ATHKAR_CATEGORIES[0];
+
+  // Prayers subcategories list
+  const prayerSubs = [
+    { id: 'all', label: 'الكل (جميع الصلوات)' },
+    { id: 'دبر المكتوبة', label: 'دبر الصلوات المكتوبة 🕌' },
+    { id: 'الفجر', label: 'صلاة الفجر 🌅' },
+    { id: 'الفجر والمغرب', label: 'الفجر والمغرب 🌇' },
+    { id: 'الوتر والعشاء', label: 'الوتر والعشاء 🌙' }
+  ];
+
+  // Habit status for morning / evening
+  let habitBannerHtml = '';
+  if (!isSearchActive && (_activeAthkarCat === 'morning' || _activeAthkarCat === 'evening')) {
+    const habitId = _activeAthkarCat === 'morning' ? 'morning-athkar' : 'evening-athkar';
+    const habit = (s.habits || []).find(h => h.id === habitId);
+    const isDone = habit && (habit.minGoalDone || habit.todayStatus === 'min_done' || habit.todayStatus === 'extra_done');
+    const habitTitle = _activeAthkarCat === 'morning' ? 'أذكار الصباح اليومية' : 'أذكار المساء اليومية';
+
+    habitBannerHtml = `
+      <div style="background:linear-gradient(135deg, rgba(197, 160, 89, 0.14) 0%, rgba(74, 107, 83, 0.12) 100%);border:1.5px solid ${isDone ? 'var(--color-sage)' : 'rgba(197, 160, 89, 0.4)'};border-radius:var(--radius-xl);padding:var(--space-3) var(--space-4);margin-bottom:var(--space-3);display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)">
+        <div style="display:flex;align-items:center;gap:var(--space-3)">
+          <div style="width:2.4rem;height:2.4rem;border-radius:50%;background:${isDone ? 'var(--color-sage)' : 'var(--color-gold)'};color:#FFF;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">
+            <span class="material-symbols-outlined">${isDone ? 'task_alt' : 'verified'}</span>
+          </div>
+          <div>
+            <div style="font-weight:700;font-size:0.95rem;color:var(--text-primary)">
+              ${habitTitle}
+            </div>
+            <div style="font-size:var(--font-size-xs);color:${isDone ? 'var(--color-sage-dark)' : 'var(--text-muted)'}">
+              ${isDone ? '✨ مكتملة في وردك اليومي، تقبل الله منك' : '🌱 اقرأ أذكارك واضغط لتسجيلها في مهامك اليومية'}
+            </div>
+          </div>
+        </div>
+        <button class="btn ${isDone ? 'btn--secondary' : 'btn--primary'}" style="padding:6px 14px;font-size:0.8rem;white-space:nowrap" onclick="App.completeAthkar('${habitId}')">
+          <span class="material-symbols-outlined" style="font-size:1rem">${isDone ? 'check' : 'done_all'}</span>
+          <span>${isDone ? 'مكتملة ✓' : 'تسجيل الإتمام'}</span>
+        </button>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="athkar-container" style="display:flex;flex-direction:column;gap:var(--space-3)">
+
+      <!-- 1. Search Bar -->
+      <div class="thikr-search-box">
+        <span class="material-symbols-outlined thikr-search-icon">search</span>
+        <input type="text" class="thikr-search-input" id="athkar-search-input"
+          placeholder="ابحث في الأذكار والأدعية أو فوائدها (مثال: الرزق، الفجر، محو الذنوب، سيد الاستغفار)..."
+          value="${_athkarSearchQuery}"
+          oninput="App.onAthkarSearch(this.value)">
+        ${_athkarSearchQuery ? `
+          <button onclick="App.clearAthkarSearch()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;padding:4px" title="مسح البحث">
+            <span class="material-symbols-outlined" style="font-size:1.2rem">close</span>
+          </button>
+        ` : ''}
+      </div>
+
+      <!-- 2. Categories Horizontal Chips -->
+      <div class="athkar-nav-chips">
+        ${ATHKAR_CATEGORIES.map(cat => {
+          const isActive = !isSearchActive && _activeAthkarCat === cat.id;
+          return `
+            <button class="athkar-cat-chip ${isActive ? 'active' : ''}" onclick="App.switchAthkarCategory('${cat.id}')">
+              <span class="material-symbols-outlined" style="font-size:1.15rem">${cat.icon}</span>
+              <span>${cat.label}</span>
+            </button>
+          `;
+        }).join('')}
+      </div>
+
+      <!-- 3. Prayers Sub-filter (when Prayers category is active) -->
+      ${!isSearchActive && _activeAthkarCat === 'prayers' ? `
+        <div class="athkar-subfilters-row">
+          ${prayerSubs.map(sub => `
+            <button class="athkar-subfilter-btn ${_activePrayerSub === sub.id ? 'active' : ''}" onclick="App.switchPrayerSub('${sub.id}')">
+              ${sub.label}
+            </button>
+          `).join('')}
+        </div>
+      ` : ''}
+
+      <!-- 4. Habit Banner (for Morning & Evening) -->
+      ${habitBannerHtml}
+
+      <!-- 5. Active Header Info / Search Results Count -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 4px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="material-symbols-outlined" style="font-size:1.2rem;color:var(--color-gold)">
+            ${isSearchActive ? 'manage_search' : activeCatMeta.icon}
+          </span>
+          <span style="font-weight:700;font-size:0.95rem;color:var(--text-primary)">
+            ${isSearchActive ? `نتائج البحث عن «${_athkarSearchQuery}»` : activeCatMeta.label}
+          </span>
+          <span class="chip chip--neutral" style="font-size:0.7rem;padding:2px 8px">
+            ${n(displayItems.length)} ذكر ودعاء
+          </span>
+        </div>
+        ${!isSearchActive && activeCatMeta.badge ? `
+          <span style="font-size:0.75rem;color:var(--text-muted);font-weight:600">
+            ${activeCatMeta.badge}
+          </span>
+        ` : ''}
+      </div>
+
+      <!-- 6. List of Dhikr & Dua Cards -->
+      <div class="athkar-list" style="display:flex;flex-direction:column;gap:var(--space-3)">
+        ${displayItems.length === 0 ? `
+          <div style="text-align:center;padding:var(--space-8);background:var(--color-bg-card);border:1px dashed var(--color-border);border-radius:var(--radius-xl);color:var(--text-muted)">
+            <span class="material-symbols-outlined" style="font-size:2.5rem;color:var(--color-gold);margin-bottom:var(--space-2)">search_off</span>
+            <p style="font-weight:600;font-size:1rem;color:var(--text-primary);margin:0">لم يتم العثور على أذكار مطابقة</p>
+            <p style="font-size:var(--font-size-xs);margin-top:4px">جرب البحث بكلمة أخرى مثل: استغفار، بركة، نوم، فجر</p>
+            <button class="btn btn--secondary" style="margin-top:var(--space-3)" onclick="App.clearAthkarSearch()">
+              عرض جميع الأذكار
+            </button>
+          </div>
+        ` : displayItems.map(item => {
+          const currentCount = counters[item.id] || 0;
+          const isDone = currentCount >= item.count;
+          const target = item.count;
+
+          return `
+            <div class="thikr-card" id="thikr-card-${item.id}" style="${isDone ? 'border-color:var(--color-sage) !important;background:linear-gradient(180deg, #FFFFFF 0%, rgba(74, 107, 83, 0.05) 100%) !important;' : ''}">
+              
+              <!-- Card Header -->
+              <div class="thikr-card-header">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span class="material-symbols-outlined icon-fill" style="font-size:1.15rem;color:var(--color-gold)">verified</span>
+                  <span style="font-weight:700;font-size:0.92rem;color:var(--text-primary)">
+                    ${item.title}
+                  </span>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px">
+                  ${item.subCategory ? `
+                    <span class="chip chip--neutral" style="font-size:0.68rem;padding:2px 7px">
+                      ${item.subCategory}
+                    </span>
+                  ` : ''}
+                  <button class="thikr-action-btn" onclick="App.copyThikr('${item.id}')" title="نسخ الذكر كاملاً">
+                    <span class="material-symbols-outlined" style="font-size:1.05rem">content_copy</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Dhikr Arabic Text -->
+              <div class="thikr-card-text">
+                ${item.text}
+              </div>
+
+              <!-- Crucial Feature: "في مو يفيد" / Benefit & Virtue Box -->
+              <div class="thikr-benefit-box">
+                <div class="thikr-benefit-badge">
+                  <span class="material-symbols-outlined icon-fill" style="font-size:0.95rem">auto_awesome</span>
+                  <span>فيمَ يفيد وفضله وبركته:</span>
+                </div>
+                <p class="thikr-benefit-desc">
+                  ${item.benefit}
+                </p>
+                ${item.source ? `
+                  <div class="thikr-source">
+                    <span style="font-weight:600">المصدر:</span> ${item.source}
+                  </div>
+                ` : ''}
+              </div>
+
+              <!-- Repetition Counter & Interaction Row -->
+              <div class="thikr-counter-row">
+                <button class="thikr-tap-btn ${isDone ? 'completed' : ''}" id="thikr-btn-${item.id}"
+                  onclick="App.countThikr('${item.id}', ${target})">
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <span class="material-symbols-outlined" style="font-size:1.2rem">${isDone ? 'check_circle' : 'touch_app'}</span>
+                    <span id="thikr-label-${item.id}">${isDone ? 'تم بحمد الله' : 'انقر للعد والتكرار'}</span>
+                  </div>
+                  <span class="thikr-badge-count" id="thikr-count-${item.id}">
+                    ${isDone ? `تم (${n(target)})` : `${n(currentCount)} / ${n(target)}`}
+                  </span>
+                </button>
+
+                <button class="thikr-action-btn" onclick="App.resetThikr('${item.id}')" title="إعادة تصفير العدّاد">
+                  <span class="material-symbols-outlined" style="font-size:1.1rem">restart_alt</span>
+                </button>
+              </div>
+
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+    </div>
+  `;
 }
