@@ -445,56 +445,277 @@
 
 /* ════════════════════════════════════════════
    STREAK ROW (7-day tracker)
+/* ════════════════════════════════════════════
+   STREAK TRACKER DESIGNS (أشكال تتبع الأيام الثلاثة)
 ════════════════════════════════════════════ */
-.streak-row {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: var(--space-2);
+
+/* Switcher Control */
+.streak-style-switcher {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(44, 34, 25, 0.05);
+  padding: 3px;
+  border-radius: var(--radius-full, 9999px);
+  gap: 3px;
 }
 
-.streak-day {
+.streak-style-btn {
+  background: none;
+  border: none;
+  padding: 4px 10px;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.streak-style-btn:hover {
+  color: var(--color-gold);
+}
+
+.streak-style-btn.active {
+  background: var(--color-bg-card, #FFFFFF);
+  color: var(--color-gold-dark, #8C6D38);
+  box-shadow: 0 2px 6px rgba(44, 34, 25, 0.08);
+}
+
+/* ── STYLE 1: Vertical Rounded Capsules (الكبسولات الرأسية الأنيقة) ── */
+.streak-capsules-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+@media (max-width: 480px) {
+  .streak-capsules-grid {
+    gap: 3px;
+  }
+}
+
+.streak-capsule-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-1);
+  justify-content: space-between;
+  padding: 10px 2px;
+  border-radius: 16px;
+  background: var(--color-bg-card, #FFFFFF);
+  border: 1.5px solid rgba(197, 160, 89, 0.22);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: center;
+  min-height: 84px;
+  box-shadow: 0 2px 6px rgba(44, 34, 25, 0.02);
 }
 
-.streak-day__label {
-  font-size: 0.6875rem;
+.streak-capsule-item:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-gold);
+  box-shadow: 0 4px 12px rgba(184, 142, 79, 0.12);
+}
+
+.streak-capsule-item__day {
+  font-size: 0.72rem;
+  font-weight: 700;
   color: var(--text-secondary);
-  font-weight: var(--font-weight-medium);
+  line-height: 1.2;
 }
 
-.streak-day__dot {
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: var(--radius-full);
+.streak-capsule-item__date {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 3px 0 6px 0;
+  line-height: 1;
+}
+
+.streak-capsule-item__icon {
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.0625rem;
-  transition: all var(--transition-fast);
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
 }
 
-.streak-day__dot--done {
-  background: var(--color-primary);
-  color: var(--color-gold);
+.streak-capsule-item.done {
+  border-color: rgba(74, 107, 83, 0.35);
+  background: linear-gradient(180deg, #FFFFFF 0%, rgba(74, 107, 83, 0.05) 100%);
 }
 
-.streak-day__dot--today {
+.streak-capsule-item.done .streak-capsule-item__icon {
+  background: var(--color-sage, #4A6B53);
+  color: #FFFFFF;
+  box-shadow: 0 2px 6px rgba(74, 107, 83, 0.25);
+}
+
+.streak-capsule-item.today {
+  border: 2px solid var(--color-gold, #B88E4F) !important;
+  background: linear-gradient(180deg, #FFFDF9 0%, rgba(249, 243, 234, 0.95) 100%);
+  box-shadow: 0 4px 14px rgba(184, 142, 79, 0.2);
+  transform: scale(1.03);
+  z-index: 1;
+}
+
+.streak-capsule-item.today .streak-capsule-item__day {
+  color: var(--color-gold-dark, #8C6D38);
+  font-weight: 800;
+}
+
+.streak-capsule-item.today .streak-capsule-item__icon {
+  background: linear-gradient(135deg, var(--color-gold) 0%, #8A6529 100%);
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(184, 142, 79, 0.3);
+}
+
+.streak-capsule-item.empty .streak-capsule-item__icon {
+  background: rgba(44, 34, 25, 0.04);
+  color: var(--text-muted);
+  border: 1px dashed rgba(44, 34, 25, 0.18);
+}
+
+/* ── STYLE 2: Growth Timeline Pathway (المسار الإيماني المتصل) ── */
+.streak-timeline-track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 8px;
+}
+
+.streak-timeline-line {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  right: 14px;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(74, 107, 83, 0.25) 0%, rgba(184, 142, 79, 0.3) 100%);
+  border-radius: 99px;
+  z-index: 0;
+  transform: translateY(-50%);
+}
+
+.streak-timeline-node {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.streak-timeline-node__dot {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  background: var(--color-bg-card);
+  border: 2px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+
+.streak-timeline-node.done .streak-timeline-node__dot {
+  background: var(--color-sage);
+  border-color: var(--color-sage);
+  color: #FFFFFF;
+}
+
+.streak-timeline-node.today .streak-timeline-node__dot {
   background: var(--color-gold);
-  color: var(--text-inverted);
-  box-shadow: 0 0 0 3px var(--color-gold-light);
+  border-color: var(--color-gold);
+  color: #FFFFFF;
+  box-shadow: 0 0 0 4px rgba(184, 142, 79, 0.25);
+  transform: scale(1.12);
 }
 
-.streak-day__dot--empty {
-  background: var(--color-border);
+.streak-timeline-node__label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.streak-timeline-node.today .streak-timeline-node__label {
+  color: var(--color-gold-dark);
+  font-weight: 800;
+}
+
+.streak-timeline-node__date {
+  font-size: 0.65rem;
   color: var(--text-muted);
 }
 
-.streak-day.today .streak-day__label {
-  color: var(--color-gold);
-  font-weight: var(--font-weight-bold);
+/* ── STYLE 3: Minimalist Square Strip (التقويم المصغر الهادئ) ── */
+.streak-minimal-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: 6px;
+  gap: 4px;
+}
+
+.streak-minimal-cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 2px;
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+}
+
+.streak-minimal-cell.today {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-gold);
+  box-shadow: 0 2px 8px rgba(184, 142, 79, 0.15);
+}
+
+.streak-minimal-cell__day {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.streak-minimal-cell.today .streak-minimal-cell__day {
+  color: var(--color-gold-dark);
+  font-weight: 800;
+}
+
+.streak-minimal-cell__date {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 2px 0 4px;
+}
+
+.streak-minimal-cell__indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-border);
+}
+
+.streak-minimal-cell.done .streak-minimal-cell__indicator {
+  background: var(--color-sage);
+  width: 7px;
+  height: 7px;
+}
+
+.streak-minimal-cell.today .streak-minimal-cell__indicator {
+  background: var(--color-gold);
+  width: 7px;
+  height: 7px;
 }
 
 /* ════════════════════════════════════════════
@@ -766,6 +987,39 @@
   border: 1px solid rgba(197, 160, 89, 0.35);
   overflow: hidden;
   transition: all var(--transition-normal);
+  user-select: none;
+  touch-action: pan-y pinch-zoom;
+}
+
+/* Page Flip Animations (محاكاة تقليب صفحات المصحف الشريف من اليمين لليسار) */
+@keyframes mushafFlipNext {
+  0% {
+    opacity: 0.65;
+    transform: translateX(28px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes mushafFlipPrev {
+  0% {
+    opacity: 0.65;
+    transform: translateX(-28px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.mushaf-flip-next {
+  animation: mushafFlipNext 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.mushaf-flip-prev {
+  animation: mushafFlipPrev 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* Double Ornate Gilded Border Frame */
@@ -2417,3 +2671,632 @@ body.mushaf-focus-active .mushaf-exit-focus-btn {
   border-color: var(--color-gold);
   background: rgba(197, 160, 89, 0.1);
 }
+
+/* ═════════════════════════════════════════════════
+   ATHKAR HOME SHOWCASE (حصن الأذكار في الرئيسية بتصميم هادئ ومرتب)
+   ═════════════════════════════════════════════════ */
+.athkar-home-card {
+  background: linear-gradient(135deg, rgba(246, 239, 233, 0.75) 0%, rgba(255, 253, 249, 0.95) 100%);
+  border: 1.5px solid rgba(197, 160, 89, 0.35);
+  border-radius: var(--radius-2xl, 24px);
+  padding: var(--space-4, 16px);
+  box-shadow: 0 4px 20px rgba(44, 34, 25, 0.04);
+  position: relative;
+  overflow: hidden;
+}
+
+.athkar-home-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3, 12px);
+  gap: 12px;
+}
+
+.athkar-home-header-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+}
+
+.athkar-home-icon-circle {
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(197, 160, 89, 0.25) 0%, rgba(74, 107, 83, 0.2) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-gold);
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(184, 142, 79, 0.12);
+}
+
+.athkar-home-open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(197, 160, 89, 0.12);
+  border: 1px solid rgba(197, 160, 89, 0.35);
+  padding: 6px 14px;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-gold-dark, #8C6D38);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.athkar-home-open-btn:hover {
+  background: var(--color-gold);
+  color: #FFFFFF;
+  transform: translateX(-2px);
+  box-shadow: 0 4px 12px rgba(184, 142, 79, 0.25);
+}
+
+.athkar-home-open-btn:hover .rtl-flip {
+  color: #FFFFFF !important;
+}
+
+/* 4 Pillars Clean Grid */
+.athkar-pillars-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: var(--space-3, 12px);
+}
+
+@media (min-width: 680px) {
+  .athkar-pillars-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.athkar-pillar-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: right;
+  padding: 12px 14px;
+  background: var(--color-bg-card, #FFFFFF);
+  border: 1px solid rgba(197, 160, 89, 0.25);
+  border-radius: var(--radius-xl, 16px);
+  cursor: pointer;
+  transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 6px rgba(44, 34, 25, 0.03);
+  position: relative;
+  width: 100%;
+}
+
+.athkar-pillar-card:hover {
+  border-color: var(--color-gold);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(184, 142, 79, 0.14);
+  background: #FFFDF9;
+}
+
+.athkar-pillar-card.active-time {
+  border: 1.5px solid var(--color-gold);
+  background: linear-gradient(135deg, rgba(255, 253, 249, 1) 0%, rgba(249, 243, 234, 0.95) 100%);
+  box-shadow: 0 4px 14px rgba(184, 142, 79, 0.15);
+}
+
+.athkar-pillar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+.athkar-pillar-emoji {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.athkar-pillar-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--radius-full, 9999px);
+  background: rgba(197, 160, 89, 0.15);
+  color: var(--color-gold-dark, #8C6D38);
+}
+
+.athkar-pillar-badge.time-badge {
+  background: rgba(74, 107, 83, 0.16);
+  color: var(--color-sage, #4A6B53);
+  border: 1px solid rgba(74, 107, 83, 0.3);
+}
+
+.athkar-pillar-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+  line-height: 1.3;
+}
+
+.athkar-pillar-desc {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+
+.athkar-home-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px solid rgba(197, 160, 89, 0.18);
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.athkar-home-footer-more {
+  color: var(--color-gold-dark, #8C6D38);
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: transform 0.15s ease;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.athkar-home-footer-more:hover {
+  transform: translateX(-2px);
+  color: var(--color-gold);
+}
+
+/* ════════════════════════════════════════════
+   VIBRANT ROUNDED CAPSULES (STREAK SYSTEM)
+════════════════════════════════════════════ */
+.streak-card-vibrant {
+  position: relative;
+  overflow: hidden;
+}
+
+.streak-counter-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(135deg, rgba(184, 142, 79, 0.16) 0%, rgba(242, 228, 203, 0.5) 100%);
+  border: 1px solid rgba(184, 142, 79, 0.35);
+  color: var(--color-gold-dark, #8A6529);
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.82rem;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(184, 142, 79, 0.1);
+}
+
+.streak-progress-bar-wrap {
+  width: 100%;
+  height: 5px;
+  background: rgba(184, 142, 79, 0.12);
+  border-radius: var(--radius-full);
+  margin: 4px 0 14px 0;
+  overflow: hidden;
+}
+
+.streak-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4A6B53 0%, #B88E4F 100%);
+  border-radius: var(--radius-full);
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.streak-capsules-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  width: 100%;
+  margin-bottom: var(--space-3);
+  direction: rtl;
+}
+
+@media (max-width: 380px) {
+  .streak-capsules-grid {
+    gap: 4px;
+  }
+}
+
+.streak-capsule-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 2px 8px 2px;
+  border-radius: 24px;
+  min-height: 96px;
+  text-align: center;
+  user-select: none;
+  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-sizing: border-box;
+}
+
+.streak-capsule-item:hover {
+  transform: translateY(-2px);
+}
+
+/* Day Name text */
+.streak-capsule-day {
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  margin-bottom: 2px;
+}
+
+/* Day Number text */
+.streak-capsule-num {
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+/* Icon / Badge Container */
+.streak-capsule-icon-wrap {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+
+/* Small Tag for Today */
+.streak-capsule-pill-badge {
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #B88E4F, #8A6529);
+  color: #FFFDF9;
+  font-size: 0.58rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 6px;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 2px 5px rgba(138, 101, 41, 0.35);
+  letter-spacing: -0.02em;
+}
+
+/* ──────────────────────────────────────────
+   STATE 1: DONE (Vibrant Emerald Gradient)
+   ────────────────────────────────────────── */
+.streak-capsule-item.is-done {
+  background: linear-gradient(180deg, #3D8557 0%, #25653C 100%);
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(37, 101, 60, 0.28);
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+}
+
+.streak-capsule-item.is-done .streak-capsule-day {
+  color: #FFFFFF;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.streak-capsule-item.is-done .streak-capsule-num {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.streak-capsule-item.is-done .streak-capsule-icon-wrap {
+  background: #FFFFFF;
+  color: #25653C;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+/* ──────────────────────────────────────────
+   STATE 2: TODAY (Pending or Done)
+   ────────────────────────────────────────── */
+.streak-capsule-item.is-today {
+  margin-top: 2px;
+}
+
+/* Today & Done: Extra radiant celebration */
+.streak-capsule-item.is-today.is-done {
+  border: 2px solid #F3CF7A;
+  box-shadow: 0 0 16px rgba(243, 207, 122, 0.5), 0 4px 14px rgba(37, 101, 60, 0.35);
+  transform: translateY(-2px);
+}
+
+.streak-capsule-item.is-today.is-done .streak-capsule-icon-wrap {
+  background: #FFF9E6;
+  color: #8A6529;
+}
+
+/* Today & Pending: Warm golden inviting glow */
+.streak-capsule-item.is-today.is-pending {
+  background: linear-gradient(180deg, #FFFDF8 0%, #FAF0DE 100%);
+  border: 2px solid var(--color-gold, #B88E4F);
+  box-shadow: 0 4px 16px rgba(184, 142, 79, 0.3);
+  transform: translateY(-2px);
+}
+
+.streak-capsule-item.is-today.is-pending .streak-capsule-day {
+  color: var(--color-gold-dark, #8A6529);
+  font-weight: 800;
+}
+
+.streak-capsule-item.is-today.is-pending .streak-capsule-num {
+  color: var(--color-primary, #2C2219);
+  font-weight: 800;
+}
+
+.streak-capsule-item.is-today.is-pending .streak-capsule-icon-wrap {
+  background: linear-gradient(135deg, #F3CF7A 0%, #B88E4F 100%);
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(184, 142, 79, 0.4);
+  animation: pulseCapsuleGlow 2s infinite ease-in-out;
+}
+
+@keyframes pulseCapsuleGlow {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 2px 8px rgba(184, 142, 79, 0.4);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 3px 12px rgba(184, 142, 79, 0.65);
+  }
+}
+
+/* ──────────────────────────────────────────
+   STATE 3: EMPTY / MISSED / UPCOMING
+   ────────────────────────────────────────── */
+.streak-capsule-item.is-empty {
+  background: var(--color-bg-secondary, #F6EFE9);
+  border: 1px solid rgba(184, 142, 79, 0.16);
+  opacity: 0.85;
+}
+
+.streak-capsule-item.is-empty .streak-capsule-day {
+  color: var(--text-muted, #9C8A7A);
+}
+
+.streak-capsule-item.is-empty .streak-capsule-num {
+  color: var(--text-secondary, #6E6053);
+}
+
+.streak-capsule-empty-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(184, 142, 79, 0.28);
+}
+
+/* ──────────────────────────────────────────
+   MOTIVATION BOX
+   ────────────────────────────────────────── */
+.streak-motivation-box {
+  margin-top: var(--space-3);
+  padding: 10px 14px;
+  border-radius: var(--radius-xl);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.streak-motivation-icon {
+  font-size: 1.15rem;
+  color: var(--color-gold);
+  flex-shrink: 0;
+}
+
+.streak-motivation-text {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* ──────────────────────────────────────────
+   STREAK DESIGN SWITCHER (INTERACTIVE DEMO)
+   ────────────────────────────────────────── */
+.streak-style-switcher {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: var(--color-bg-secondary, #F6EFE9);
+  padding: 3px;
+  border-radius: var(--radius-full);
+  margin-bottom: 12px;
+  border: 1px solid rgba(184, 142, 79, 0.15);
+}
+
+.streak-style-btn {
+  flex: 1;
+  padding: 5px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.streak-style-btn.active {
+  background: var(--color-bg-card, #FFFDF9);
+  color: var(--color-gold-dark, #8A6529);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* ──────────────────────────────────────────
+   OPTION 2: CONNECTED TIMELINE (المسار المتصل)
+   ────────────────────────────────────────── */
+.streak-timeline-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 6px 12px;
+  margin: 6px 0 14px;
+  direction: rtl;
+}
+
+.streak-timeline-line-bg {
+  position: absolute;
+  top: 50%;
+  left: 20px;
+  right: 20px;
+  height: 4px;
+  background: rgba(184, 142, 79, 0.18);
+  border-radius: 999px;
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+.streak-timeline-line-fill {
+  position: absolute;
+  top: 50%;
+  right: 20px;
+  height: 4px;
+  background: linear-gradient(90deg, #B88E4F 0%, #3D8557 100%);
+  border-radius: 999px;
+  transform: translateY(-50%);
+  z-index: 2;
+  transition: width 0.4s ease;
+}
+
+.streak-timeline-node {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.streak-timeline-day-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.streak-timeline-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-card, #FFFDF9);
+  border: 2px solid rgba(184, 142, 79, 0.25);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+}
+
+.streak-timeline-node.is-done .streak-timeline-circle {
+  background: linear-gradient(135deg, #3D8557 0%, #25653C 100%);
+  border-color: #3D8557;
+  color: #FFFFFF;
+  box-shadow: 0 0 12px rgba(61, 133, 87, 0.4);
+}
+
+.streak-timeline-node.is-today .streak-timeline-circle {
+  background: linear-gradient(135deg, #F3CF7A 0%, #B88E4F 100%);
+  border-color: #B88E4F;
+  color: #FFFFFF;
+  box-shadow: 0 0 14px rgba(184, 142, 79, 0.5);
+  transform: scale(1.12);
+}
+
+.streak-timeline-node.is-empty .streak-timeline-circle {
+  background: var(--color-bg-secondary, #F6EFE9);
+  border-color: rgba(184, 142, 79, 0.2);
+  color: var(--text-muted);
+}
+
+.streak-timeline-date {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* ──────────────────────────────────────────
+   OPTION 3: MINIMALIST CALENDAR STRIP (التقويم الهادئ)
+   ────────────────────────────────────────── */
+.streak-calendar-strip {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  width: 100%;
+  margin: 6px 0 14px;
+  direction: rtl;
+}
+
+.streak-calendar-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 3px 6px;
+  border-radius: 14px;
+  background: var(--color-bg-secondary, #F6EFE9);
+  border: 1px solid rgba(184, 142, 79, 0.12);
+  min-height: 74px;
+  transition: all 0.2s ease;
+}
+
+.streak-calendar-card.is-today {
+  background: #FFFDF9;
+  border: 1.5px solid var(--color-gold, #B88E4F);
+  box-shadow: 0 3px 10px rgba(184, 142, 79, 0.18);
+  transform: translateY(-2px);
+}
+
+.streak-calendar-day {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.streak-calendar-card.is-today .streak-calendar-day {
+  color: var(--color-gold-dark, #8A6529);
+  font-weight: 800;
+}
+
+.streak-calendar-num {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.streak-calendar-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(184, 142, 79, 0.2);
+}
+
+.streak-calendar-card.is-done .streak-calendar-indicator {
+  background: #3D8557;
+  box-shadow: 0 0 6px rgba(61, 133, 87, 0.4);
+}
+
+.streak-calendar-card.is-today .streak-calendar-indicator {
+  background: var(--color-gold, #B88E4F);
+  box-shadow: 0 0 6px rgba(184, 142, 79, 0.5);
+}
+
+
+

@@ -4,9 +4,11 @@
  */
 
 import { DEFAULT_HABITS, getGardenStage, getGardenProgress, ACHIEVEMENTS } from './data/habits.js';
+import { Auth } from './auth.js';
 
 // ── Helper ─────────────────────────────────────────────────
 const AR_DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+const AR_DAYS_SHORT = ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];
 const AR_MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
                    'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 
@@ -20,18 +22,20 @@ function getTodayKey() {
 }
 
 // ── Default State ───────────────────────────────────────────
-function createDefaultState() {
+function createDefaultState(userName, avatar) {
   const today = new Date();
+  const name = (userName || '').trim() || 'غارس الخير';
+  const av = avatar || (name ? name.charAt(0) : 'غ');
   return {
     version: 1,
-    isOnboarded: false,
+    isOnboarded: true,
     user: {
-      name: 'سليمان',
+      name: name,
       level: 1,
       xp: 0,
       xpToNextLevel: 200,
       joinDate: today.toISOString(),
-      avatar: 'س',
+      avatar: av,
     },
     habits: DEFAULT_HABITS.map(h => ({
       ...h,
@@ -50,6 +54,10 @@ function createDefaultState() {
       lastCompletedDate: null,
       totalXP: 0,
       badges: [],
+      graceTokens: 2,           // رخص الاستدراك الهادئة (درع الغراس)
+      isThirsty: false,         // هل النبتة في وضع العطش والانتظار
+      lastGraceUsedDate: null,
+      recoveredStreakCount: 0,
     },
     quranProgress: {
       currentSurahId: 1,
@@ -64,19 +72,24 @@ function createDefaultState() {
       todayStatus: 'pending',
       todayKey: getTodayKey(),
     },
+    khatmaPlan: {
+      enabled: false,
+      durationMonths: 1, // 1 (30 days), 2 (60 days), 3 (90 days), 6 (180 days)
+      targetDays: 30,
+      dailyPages: 20,
+      startDate: today.toISOString(),
+      prayersDone: {
+        fajr: false,
+        dhuhr: false,
+        asr: false,
+        maghrib: false,
+        isha: false
+      },
+      todayKey: getTodayKey(),
+    },
     suhba: {
-      groups: [
-        {
-          id: 'family',
-          name: 'العائلة المباركة',
-          emoji: '🏠',
-          members: [
-            { id: 'u1', name: 'أبو سليمان', avatar: 'أ', streak: 12, todayDone: true, color: '#4A6B53' },
-            { id: 'u2', name: 'أم سليمان', avatar: 'أ', streak: 8, todayDone: true, color: '#B88E4F' },
-            { id: 'u3', name: 'عبدالرحمن', avatar: 'ع', streak: 5, todayDone: false, color: '#6E6053' },
-          ]
-        }
-      ]
+      companions: [],
+      groups: [],
     },
     settings: {
       notifications: true,
@@ -138,51 +151,106 @@ function createDefaultState() {
 }
 
 // ── State Engine ────────────────────────────────────────────
-const STORAGE_KEY = 'ghiras_state_v1';
+function getStorageKey(user) {
+  const u = user || Auth.getCurrentUser();
+  if (u && u.id) {
+    return `ghiras_state_usr_${u.id}`;
+  }
+  return 'ghiras_state_guest';
+}
 
 let _state = null;
 let _listeners = [];
+let _syncDebounceTimer = null;
 
-function load() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const saved = JSON.parse(raw);
-      // Merge with defaults to handle new fields
-      _state = deepMerge(createDefaultState(), saved);
-    } else {
-      _state = createDefaultState();
+function scheduleServerSync() {
+  if (_syncDebounceTimer) clearTimeout(_syncDebounceTimer);
+  _syncDebounceTimer = setTimeout(() => {
+    if (_state && Auth.isAuthenticated() && !Auth.isGuest()) {
+      Auth.syncState(_state);
     }
-    // Daily reset check
-    checkDailyReset();
+  }, 1200);
+}
 
-    // Automatic migration to 'تدبر آية'
-    if (_state && Array.isArray(_state.habits)) {
-      const targetHabit = _state.habits.find(h => h.id === 'fajr-prayer' || h.id === 'ayah-reflection');
-      if (targetHabit && (targetHabit.name === 'صلاة الفجر' || targetHabit.name === 'قرآن الفجر' || targetHabit.id === 'fajr-prayer')) {
-        targetHabit.id = 'ayah-reflection';
-        targetHabit.name = 'تدبر آية';
-        targetHabit.icon = 'auto_stories';
-        targetHabit.iconBg = '#F2E4CB';
-        targetHabit.iconColor = '#B88E4F';
-        targetHabit.description = 'تأمل معنى آية كريمة وقراءة تفسيرها الميسر';
-        targetHabit.minGoal = { value: 1, unit: 'ayah', label: 'آية واحدة', arabicNum: '١' };
-        targetHabit.extraGoal = { value: 3, unit: 'ayahs', label: '٣ آيات بخواطرها', arabicNum: '٣' };
-        targetHabit.category = 'quran';
+function migrateHabits() {
+  if (_state && Array.isArray(_state.habits)) {
+    const targetHabit = _state.habits.find(h => h.id === 'fajr-prayer' || h.id === 'ayah-reflection');
+    if (targetHabit && (targetHabit.name === 'صلاة الفجر' || targetHabit.name === 'قرآن الفجر' || targetHabit.id === 'fajr-prayer')) {
+      targetHabit.id = 'ayah-reflection';
+      targetHabit.name = 'تدبر آية';
+      targetHabit.icon = 'auto_stories';
+      targetHabit.iconBg = '#F2E4CB';
+      targetHabit.iconColor = '#B88E4F';
+      targetHabit.description = 'تأمل معنى آية كريمة وقراءة تفسيرها الميسر';
+      targetHabit.minGoal = { value: 1, unit: 'ayah', label: 'آية واحدة', arabicNum: '١' };
+      targetHabit.extraGoal = { value: 3, unit: 'ayahs', label: '٣ آيات بخواطرها', arabicNum: '٣' };
+      targetHabit.category = 'quran';
+    }
+  }
+}
+
+function migrateSuhba() {
+  if (_state) {
+    if (!_state.suhba) {
+      _state.suhba = { companions: [], groups: [] };
+    }
+    if (!Array.isArray(_state.suhba.companions)) {
+      _state.suhba.companions = [];
+    }
+    // Remove old demo members if present
+    if (Array.isArray(_state.suhba.groups)) {
+      _state.suhba.groups = _state.suhba.groups.filter(g => 
+        g.id !== 'family' || !g.members?.some(m => m.name === 'أبو سليمان' || m.name === 'أم سليمان')
+      );
+    }
+  }
+}
+
+function load(user, remoteState) {
+  try {
+    const activeUser = user || Auth.getCurrentUser();
+    if (remoteState) {
+      _state = deepMerge(createDefaultState(activeUser?.name, activeUser?.avatar), remoteState);
+    } else {
+      const key = getStorageKey(activeUser);
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        _state = deepMerge(createDefaultState(activeUser?.name, activeUser?.avatar), saved);
+      } else {
+        _state = createDefaultState(activeUser?.name, activeUser?.avatar);
       }
     }
+    checkDailyReset();
+    migrateHabits();
+    migrateSuhba();
   } catch (e) {
     console.warn('Ghiras: state load failed, using defaults', e);
-    _state = createDefaultState();
+    const activeUser = user || Auth.getCurrentUser();
+    _state = createDefaultState(activeUser?.name, activeUser?.avatar);
   }
 }
 
 function save() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(_state));
+    const key = getStorageKey();
+    localStorage.setItem(key, JSON.stringify(_state));
+    scheduleServerSync();
   } catch (e) {
     console.warn('Ghiras: state save failed', e);
   }
+}
+
+function initForUser(user, remoteState) {
+  load(user, remoteState);
+  save();
+  notify();
+}
+
+function clearUserState() {
+  _state = null;
+  load();
+  notify();
 }
 
 function get() {
@@ -226,6 +294,27 @@ function checkDailyReset() {
     _state.quranProgress.todayPages = 0;
     _state.quranProgress.todayStatus = 'pending';
     _state.quranProgress.todayKey = today;
+    if (_state.khatmaPlan) {
+      _state.khatmaPlan.prayersDone = {
+        fajr: false,
+        dhuhr: false,
+        asr: false,
+        maghrib: false,
+        isha: false
+      };
+      _state.khatmaPlan.todayKey = today;
+    }
+
+    // Compassionate Garden check:
+    // If yesterday was missed and user had an active streak, don't wipe it out!
+    // Set isThirsty = true so the user can easily recover without guilt!
+    const yesterday = getYesterdayKey();
+    if (_state.garden && _state.garden.streakDays > 0) {
+      if (_state.garden.lastCompletedDate !== yesterday && _state.garden.lastCompletedDate !== today) {
+        _state.garden.isThirsty = true;
+      }
+    }
+
     _state._todayKey = today;
     _state.ui.lastActiveDate = today;
     save();
@@ -330,11 +419,28 @@ function updateGarden(state) {
     if (state.garden.lastCompletedDate !== today) {
       if (state.garden.lastCompletedDate === yesterday) {
         state.garden.streakDays++;
+      } else if (state.garden.isThirsty) {
+        // Compassionate revival: was thirsty, now revived by today's worship!
+        state.garden.isThirsty = false;
+        state.garden.streakDays = (state.garden.streakDays || 0) + 1;
+        showToast('🌱 الحمد لله! ارتوت نبتتك واستعادت نموها المبارك بفضله تعالى ✨', 'achievement');
       } else if (!state.garden.lastCompletedDate) {
         state.garden.streakDays = 1;
       } else {
-        state.garden.streakDays = 1; // reset streak
+        // Compassionate resilience: keep progress rather than punitive wipeout
+        state.garden.isThirsty = false;
+        state.garden.streakDays = Math.max(1, state.garden.streakDays || 1);
       }
+
+      // Award a new grace token every 15 consecutive days (capped at 3 tokens to prevent slacking)
+      if (state.garden.streakDays > 0 && state.garden.streakDays % 15 === 0 && state.garden.lastGraceEarnedStreak !== state.garden.streakDays) {
+        state.garden.lastGraceEarnedStreak = state.garden.streakDays;
+        if ((state.garden.graceTokens || 0) < 3) {
+          state.garden.graceTokens = Math.min(3, (state.garden.graceTokens || 0) + 1);
+          showToast(`💧 مبارك! التزمت ${toArabicNum(state.garden.streakDays)} يوماً وكسبت رخصة استدراك جديدة (رصيدك: ${toArabicNum(state.garden.graceTokens)} من ٣)`, 'achievement');
+        }
+      }
+
       state.garden.lastCompletedDate = today;
       if (state.garden.streakDays > state.garden.longestStreak) {
         state.garden.longestStreak = state.garden.streakDays;
@@ -525,14 +631,24 @@ function getLast7Days() {
     const done = s.habits.filter(h => h.active && (h.history[key] === 'min_done' || h.history[key] === 'extra_done')).length > 0;
     days.push({
       key,
-      label: AR_DAYS[d.getDay()].substring(0, 3),
+      label: i === 0 ? 'اليوم' : AR_DAYS_SHORT[d.getDay()],
+      dayName: AR_DAYS_SHORT[d.getDay()],
       fullLabel: AR_DAYS[d.getDay()],
+      dayNumber: toArabicNum(d.getDate()),
       isToday: i === 0,
       done,
       date: d,
     });
   }
   return days;
+}
+
+function formatStreakText(count) {
+  if (count === 0) return 'ابدأ اليوم 🌱';
+  if (count === 1) return 'يوم واحد 🔥';
+  if (count === 2) return 'يومان متتاليان 🔥';
+  if (count >= 3 && count <= 10) return `${toArabicNum(count)} أيام 🔥`;
+  return `${toArabicNum(count)} يوماً 🔥`;
 }
 
 function getMaxStreak() {
@@ -661,8 +777,10 @@ function markReminderTriggered(id, dateStr) {
 
 // ── Reset (Dev) ──────────────────────────────────────────────
 function resetState() {
-  localStorage.removeItem(STORAGE_KEY);
-  _state = createDefaultState();
+  const key = getStorageKey();
+  localStorage.removeItem(key);
+  const activeUser = Auth.getCurrentUser();
+  _state = createDefaultState(activeUser?.name, activeUser?.avatar);
   save();
   notify();
 }
@@ -670,10 +788,271 @@ function resetState() {
 // Initialize
 load();
 
+// ── Khatma Plan Actions ─────────────────────────────────────
+function setKhatmaEnabled(enabled) {
+  set(s => {
+    if (!s.khatmaPlan) {
+      s.khatmaPlan = {
+        enabled: false,
+        durationMonths: 1,
+        targetDays: 30,
+        dailyPages: 20,
+        startDate: new Date().toISOString(),
+        prayersDone: { fajr: false, dhuhr: false, asr: false, maghrib: false, isha: false },
+        todayKey: getTodayKey()
+      };
+    }
+    s.khatmaPlan.enabled = !!enabled;
+    if (enabled && !s.khatmaPlan.startDate) {
+      s.khatmaPlan.startDate = new Date().toISOString();
+    }
+  });
+}
+
+function setKhatmaDuration(months) {
+  set(s => {
+    if (!s.khatmaPlan) {
+      s.khatmaPlan = {
+        enabled: true,
+        durationMonths: 1,
+        targetDays: 30,
+        dailyPages: 20,
+        startDate: new Date().toISOString(),
+        prayersDone: { fajr: false, dhuhr: false, asr: false, maghrib: false, isha: false },
+        todayKey: getTodayKey()
+      };
+    }
+    const m = Number(months) || 1;
+    s.khatmaPlan.durationMonths = m;
+    s.khatmaPlan.targetDays = m * 30;
+    s.khatmaPlan.dailyPages = Math.max(1, Math.round(604 / (m * 30)));
+  });
+}
+
+function toggleKhatmaPrayerDone(prayerKey) {
+  let isDone = false;
+  set(s => {
+    if (!s.khatmaPlan) return;
+    if (!s.khatmaPlan.prayersDone) {
+      s.khatmaPlan.prayersDone = { fajr: false, dhuhr: false, asr: false, maghrib: false, isha: false };
+    }
+    const current = !!s.khatmaPlan.prayersDone[prayerKey];
+    s.khatmaPlan.prayersDone[prayerKey] = !current;
+    isDone = !current;
+    if (isDone) {
+      s.user.xp = (s.user.xp || 0) + 15;
+      s.garden.totalXP = (s.garden.totalXP || 0) + 15;
+    }
+  });
+  return isDone;
+}
+
+// ── Suhba (Companions & Groups) Actions ────────────────────
+function getUserTag() {
+  const s = get();
+  if (s.user && s.user.userTag) return s.user.userTag;
+  const user = Auth.getCurrentUser();
+  if (user && user.userTag) return user.userTag;
+  return 'GHR-1024';
+}
+
+function addCompanion(data) {
+  let newComp = null;
+  set(s => {
+    if (!s.suhba) s.suhba = { companions: [], groups: [] };
+    if (!Array.isArray(s.suhba.companions)) s.suhba.companions = [];
+
+    const name = (data.name || '').trim();
+    if (!name) return;
+
+    // Check if already added by tag or id
+    const existing = s.suhba.companions.find(c => 
+      (data.userTag && c.userTag && c.userTag.toUpperCase() === data.userTag.toUpperCase()) ||
+      (data.id && c.id === data.id)
+    );
+    if (existing) {
+      Object.assign(existing, data);
+      newComp = existing;
+      return;
+    }
+
+    newComp = {
+      id: data.id || ('comp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6)),
+      userId: data.userId || data.id || null,
+      userTag: data.userTag || null,
+      name: name,
+      relation: data.relation || 'رفيق درب',
+      avatar: data.avatar || (name ? name.charAt(0) : 'ص'),
+      color: data.color || '#4A6B53',
+      streak: data.streak !== undefined ? Number(data.streak) : 1,
+      xp: data.xp !== undefined ? Number(data.xp) : 120,
+      currentPage: data.currentPage !== undefined ? Number(data.currentPage) : 1,
+      currentSurahName: data.currentSurahName || 'الفاتحة',
+      currentJuzName: data.currentJuzName || 'الجزء الأول',
+      todayDone: data.todayDone !== undefined ? !!data.todayDone : true,
+      plantStage: data.plantStage || 'seed',
+      createdAt: new Date().toISOString()
+    };
+
+    s.suhba.companions.push(newComp);
+  });
+  return newComp;
+}
+
+function removeCompanion(companionId) {
+  set(s => {
+    if (!s.suhba || !Array.isArray(s.suhba.companions)) return;
+    s.suhba.companions = s.suhba.companions.filter(c => c.id !== companionId);
+  });
+}
+
+function updateCompanion(companionId, updates) {
+  set(s => {
+    if (!s.suhba || !Array.isArray(s.suhba.companions)) return;
+    const item = s.suhba.companions.find(c => c.id === companionId);
+    if (item) Object.assign(item, updates);
+  });
+}
+
+function updateCompanionsFromBatch(statsList) {
+  if (!Array.isArray(statsList) || statsList.length === 0) return;
+  set(s => {
+    if (!s.suhba || !Array.isArray(s.suhba.companions)) return;
+    statsList.forEach(stat => {
+      const comp = s.suhba.companions.find(c => 
+        (c.userId && c.userId === stat.id) ||
+        (c.userTag && stat.userTag && c.userTag.toUpperCase() === stat.userTag.toUpperCase()) ||
+        c.id === stat.id
+      );
+      if (comp) {
+        comp.name = stat.name || comp.name;
+        comp.avatar = stat.avatar || comp.avatar;
+        comp.userTag = stat.userTag || comp.userTag;
+        comp.xp = stat.xp !== undefined ? stat.xp : comp.xp;
+        comp.streak = stat.streak !== undefined ? stat.streak : comp.streak;
+        comp.currentPage = stat.currentPage !== undefined ? stat.currentPage : comp.currentPage;
+        comp.currentSurahName = stat.currentSurahName || comp.currentSurahName;
+        comp.currentJuzName = stat.currentJuzName || comp.currentJuzName;
+        comp.todayDone = stat.todayDone !== undefined ? stat.todayDone : comp.todayDone;
+        comp.plantStage = stat.plantStage || comp.plantStage;
+      }
+    });
+  });
+}
+
+function getGroups() {
+  const s = get();
+  return (s.suhba && Array.isArray(s.suhba.groups)) ? s.suhba.groups : [];
+}
+
+function setGroups(groupsList) {
+  set(s => {
+    if (!s.suhba) s.suhba = { companions: [], groups: [] };
+    s.suhba.groups = Array.isArray(groupsList) ? groupsList : [];
+  });
+}
+
+function addGroupToState(grp) {
+  set(s => {
+    if (!s.suhba) s.suhba = { companions: [], groups: [] };
+    if (!Array.isArray(s.suhba.groups)) s.suhba.groups = [];
+    const idx = s.suhba.groups.findIndex(g => g.id === grp.id || g.code === grp.code);
+    if (idx >= 0) {
+      s.suhba.groups[idx] = grp;
+    } else {
+      s.suhba.groups.push(grp);
+    }
+  });
+}
+
+function removeGroupFromState(groupId) {
+  set(s => {
+    if (!s.suhba || !Array.isArray(s.suhba.groups)) return;
+    s.suhba.groups = s.suhba.groups.filter(g => g.id !== groupId);
+  });
+}
+
+// ── Compassionate Garden Recovery & Compensation ─────────────────────────────
+function recoverGardenStreak(method = 'token') {
+  set(s => {
+    s.garden = s.garden || {};
+    s.garden.graceTokens = s.garden.graceTokens !== undefined ? s.garden.graceTokens : 2;
+
+    if (method === 'token') {
+      if (s.garden.graceTokens > 0) {
+        s.garden.graceTokens--;
+      } else {
+        showToast('⚠️ لا توجد رخص طوارئ متبقية، استخدم خيار "تعويض الورد" لإنقاذ نبتتك مجاناً 📖', 'warning');
+        return;
+      }
+    }
+
+    s.garden.isThirsty = false;
+    s.garden.streakDays = (s.garden.streakDays || 0) + 1;
+    if (s.garden.streakDays > (s.garden.longestStreak || 0)) {
+      s.garden.longestStreak = s.garden.streakDays;
+    }
+    s.garden.stage = getGardenStage(s.garden.streakDays).id;
+    s.garden.lastCompletedDate = getTodayKey();
+    s.garden.lastGraceUsedDate = getTodayKey();
+    s.garden.recoveredStreakCount = (s.garden.recoveredStreakCount || 0) + 1;
+
+    awardXP(s, 50, '💧 رخصة استدراك');
+    showToast(`🌱 الحمد لله! استُخدمت رخصة استدراك لحفظ نبتتك وسلسلتك (المتبقي: ${toArabicNum(s.garden.graceTokens)} من ٣) ✨`, 'achievement');
+  });
+}
+
+function compensateMissedWird() {
+  set(s => {
+    s.garden = s.garden || {};
+    // Compensation does NOT deduct any grace tokens!
+    s.garden.isThirsty = false;
+    s.garden.streakDays = (s.garden.streakDays || 0) + 1;
+    if (s.garden.streakDays > (s.garden.longestStreak || 0)) {
+      s.garden.longestStreak = s.garden.streakDays;
+    }
+    s.garden.stage = getGardenStage(s.garden.streakDays).id;
+    s.garden.lastCompletedDate = getTodayKey();
+    s.garden.compensatedDaysCount = (s.garden.compensatedDaysCount || 0) + 1;
+
+    // Award bonus XP for making up the wird!
+    awardXP(s, 80, '📖 تعويض الورد ببركة');
+    showToast('🌟 «من نام عن حزبه فقرأه..» تقبل الله! عوّضت وردك ببركة وارتوت نبتتك دون استهلاك أي رخصة 🌿', 'achievement');
+  });
+}
+
+function simulateMissedDay() {
+  set(s => {
+    s.garden = s.garden || {};
+    s.garden.isThirsty = true;
+    showToast('⚠️ تم تفعيل حالة "النبتة العطشى" لمعاينة التعافي الرحيم والتعويض');
+  });
+}
+
+function getGraceTokens() {
+  const s = get();
+  return (s.garden && s.garden.graceTokens !== undefined) ? s.garden.graceTokens : 2;
+}
+
+function getDaysUntilNextGraceToken() {
+  const s = get();
+  const streak = s.garden?.streakDays || 0;
+  const rem = streak % 15;
+  return rem === 0 ? 15 : (15 - rem);
+}
+
+function isGardenThirsty() {
+  const s = get();
+  return !!(s.garden && s.garden.isThirsty);
+}
+
 export const State = {
   get,
   set,
   subscribe,
+  initForUser,
+  clearUserState,
+  getStorageKey,
   completeHabit,
   upgradeHabitGoal,
   updateQuranProgress,
@@ -688,6 +1067,20 @@ export const State = {
   deleteReminder,
   toggleReminder,
   markReminderTriggered,
+  // Khatma Plan
+  setKhatmaEnabled,
+  setKhatmaDuration,
+  toggleKhatmaPrayerDone,
+  // Suhba (Companions & Groups)
+  getUserTag,
+  addCompanion,
+  removeCompanion,
+  updateCompanion,
+  updateCompanionsFromBatch,
+  getGroups,
+  setGroups,
+  addGroupToState,
+  removeGroupFromState,
   // Computed
   getTodayGreeting,
   getHijriDate,
@@ -697,8 +1090,16 @@ export const State = {
   getMaxStreak,
   getGardenStage,
   getGardenProgress,
+  formatStreakText,
   // UI helpers
   showToast,
+  // Garden Compassionate Recovery & Compensation
+  recoverGardenStreak,
+  compensateMissedWird,
+  simulateMissedDay,
+  getGraceTokens,
+  getDaysUntilNextGraceToken,
+  isGardenThirsty,
   // Dev
   resetState,
   toArabicNum,

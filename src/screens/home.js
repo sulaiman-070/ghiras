@@ -18,9 +18,14 @@ export function renderHome() {
   const gardenPct = getGardenProgress(streakDays);
   const dailyAyah = getDailyAyah();
   const maxStreak = State.getMaxStreak();
+  const doneDaysCount = last7.filter(d => d.done).length;
+  const todayItem = last7.find(d => d.isToday);
+  const isTodayDone = todayItem ? todayItem.done : false;
+  const streakStyle = localStorage.getItem('ghiras_streak_style') || 'capsules';
 
   // Micro-habit upgrade suggestion (show after 7-day streak)
   const showUpgradeSuggestion = streakDays >= 7 && !s._upgradeAcknowledged;
+  const isMorning = (new Date().getHours() >= 3 && new Date().getHours() < 15);
 
   return `
 <div class="screen-content stagger" id="home-content">
@@ -180,64 +185,73 @@ export function renderHome() {
   </section>
 
   <!-- ⑥ Athkar & Prophetic Duas Hub Showcase Card (حصن الأذكار وصحيح الأدعية) -->
-  <section class="card animate-fadeInUp" style="animation-delay:118ms;background:linear-gradient(135deg, rgba(184,142,79,0.12) 0%, rgba(74,107,83,0.12) 100%);border:1.5px solid rgba(197,160,89,0.4);padding:var(--space-4)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3)">
-      <div style="display:flex;align-items:center;gap:var(--space-2)">
-        <div style="width:2.2rem;height:2.2rem;border-radius:50%;background:rgba(197,160,89,0.25);display:flex;align-items:center;justify-content:center;color:var(--color-gold)">
+  <!-- ⑥ Athkar & Prophetic Duas Hub Showcase Card (حصن الأذكار وصحيح الأدعية بتصميم هادئ ومريح) -->
+  <section class="card athkar-home-card animate-fadeInUp" style="animation-delay:118ms">
+    <!-- Header -->
+    <div class="athkar-home-header">
+      <div class="athkar-home-header-title">
+        <div class="athkar-home-icon-circle">
           <span class="material-symbols-outlined icon-fill" style="font-size:1.3rem">auto_awesome</span>
         </div>
         <div>
-          <h3 style="font-size:0.95rem;font-weight:700;color:var(--text-primary);margin:0">حصن الأذكار وصحيح الأدعية النبوية</h3>
-          <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:2px">أذكار موثقة بالتشكيل مع فضائلها (في مو يفيد) وعدّاد تفاعلي</div>
+          <h3 style="font-size:0.98rem;font-weight:700;color:var(--text-primary);margin:0">حصن الأذكار وصحيح الأدعية</h3>
+          <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:2px">أذكار موثقة بالتشكيل مع فضائلها وعدّاد تفاعلي</div>
         </div>
       </div>
-      <button class="section-link" onclick="App.openAthkarCategory('morning')">
+      <button class="athkar-home-open-btn" onclick="App.openAthkarCategory('${isMorning ? 'morning' : 'evening'}')">
         <span>فتح الحصن</span>
-        <span class="material-symbols-outlined rtl-flip" style="font-size:0.875rem;color:var(--color-gold)">arrow_forward</span>
+        <span class="material-symbols-outlined rtl-flip" style="font-size:0.875rem">arrow_forward</span>
       </button>
     </div>
 
-    <!-- Category Shortcuts Row -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px">
-      <button class="chip" onclick="App.openAthkarCategory('morning')" style="cursor:pointer;padding:8px 10px;justify-content:center;gap:6px;background:var(--color-bg-card);border:1px solid rgba(197,160,89,0.3)">
-        <span>🌅</span>
-        <span style="font-weight:700;font-size:0.78rem">أذكار الصباح</span>
+    <!-- 4 Core Pillars Grid (Clean, Symmetrical, Non-distracting) -->
+    <div class="athkar-pillars-grid">
+      <button class="athkar-pillar-card ${isMorning ? 'active-time' : ''}" onclick="App.openAthkarCategory('morning')">
+        <div class="athkar-pillar-top">
+          <span class="athkar-pillar-emoji">🌅</span>
+          <span class="athkar-pillar-badge ${isMorning ? 'time-badge' : ''}">${isMorning ? '⭐ وقتك الحالي' : 'حفظ وبركة'}</span>
+        </div>
+        <div class="athkar-pillar-title">أذكار الصباح</div>
+        <div class="athkar-pillar-desc">بركة النهار وحفظه من كل سوء</div>
       </button>
-      <button class="chip" onclick="App.openAthkarCategory('evening')" style="cursor:pointer;padding:8px 10px;justify-content:center;gap:6px;background:var(--color-bg-card);border:1px solid rgba(197,160,89,0.3)">
-        <span>🌇</span>
-        <span style="font-weight:700;font-size:0.78rem">أذكار المساء</span>
+
+      <button class="athkar-pillar-card ${!isMorning ? 'active-time' : ''}" onclick="App.openAthkarCategory('evening')">
+        <div class="athkar-pillar-top">
+          <span class="athkar-pillar-emoji">🌇</span>
+          <span class="athkar-pillar-badge ${!isMorning ? 'time-badge' : ''}">${!isMorning ? '🌙 وقتك الحالي' : 'سكينة وأمان'}</span>
+        </div>
+        <div class="athkar-pillar-title">أذكار المساء</div>
+        <div class="athkar-pillar-desc">سكينة الليل وحصن المسلم</div>
       </button>
-      <button class="chip" onclick="App.openAthkarCategory('prayers')" style="cursor:pointer;padding:8px 10px;justify-content:center;gap:6px;background:var(--color-bg-card);border:1px solid rgba(197,160,89,0.3)">
-        <span>🕌</span>
-        <span style="font-weight:700;font-size:0.78rem">بعد الصلوات</span>
+
+      <button class="athkar-pillar-card" onclick="App.openAthkarCategory('prayers')">
+        <div class="athkar-pillar-top">
+          <span class="athkar-pillar-emoji">🕌</span>
+          <span class="athkar-pillar-badge">عقب الصلوات</span>
+        </div>
+        <div class="athkar-pillar-title">بعد الصلوات</div>
+        <div class="athkar-pillar-desc">أذكار الفجر والمغرب والمكتوبة</div>
       </button>
-      <button class="chip" onclick="App.openAthkarCategory('quranic')" style="cursor:pointer;padding:8px 10px;justify-content:center;gap:6px;background:var(--color-bg-card);border:1px solid rgba(197,160,89,0.3)">
-        <span>📖</span>
-        <span style="font-weight:700;font-size:0.78rem">أدعية القرآن</span>
+
+      <button class="athkar-pillar-card" onclick="App.openAthkarCategory('quranic')">
+        <div class="athkar-pillar-top">
+          <span class="athkar-pillar-emoji">📖</span>
+          <span class="athkar-pillar-badge">دعاء الأنبياء</span>
+        </div>
+        <div class="athkar-pillar-title">أدعية القرآن</div>
+        <div class="athkar-pillar-desc">جوامع الدعاء والشفاء والفرج</div>
       </button>
-      <button class="chip" onclick="App.openAthkarCategory('sustenance')" style="cursor:pointer;padding:8px 10px;justify-content:center;gap:6px;background:var(--color-bg-card);border:1px solid rgba(197,160,89,0.3)">
-        <span>🌾</span>
-        <span style="font-weight:700;font-size:0.78rem">الرزق والديْن</span>
-      </button>
-      <button class="chip" onclick="App.openAthkarCategory('forgiveness')" style="cursor:pointer;padding:8px 10px;justify-content:center;gap:6px;background:var(--color-bg-card);border:1px solid rgba(197,160,89,0.3)">
-        <span>💎</span>
-        <span style="font-weight:700;font-size:0.78rem">محو الذنوب</span>
-      </button>
-      <button class="chip" onclick="App.openAthkarCategory('parents_family')" style="cursor:pointer;padding:8px 10px;justify-content:center;gap:6px;background:var(--color-bg-card);border:1px solid rgba(197,160,89,0.3)">
-        <span>👨‍👩‍👧</span>
-        <span style="font-weight:700;font-size:0.78rem">الوالدان والذرية</span>
-      </button>
-      <button class="chip" onclick="App.openAthkarCategory('healing')" style="cursor:pointer;padding:8px 10px;justify-content:center;gap:6px;background:var(--color-bg-card);border:1px solid rgba(197,160,89,0.3)">
-        <span>🛡️</span>
-        <span style="font-weight:700;font-size:0.78rem">الشفاء والحفظ</span>
-      </button>
-      <button class="chip" onclick="App.openAthkarCategory('daily_life')" style="cursor:pointer;padding:8px 10px;justify-content:center;gap:6px;background:var(--color-bg-card);border:1px solid rgba(197,160,89,0.3)">
-        <span>🚗</span>
-        <span style="font-weight:700;font-size:0.78rem">اليوم والسفر</span>
-      </button>
-      <button class="chip" onclick="App.openAthkarCategory('guidance')" style="cursor:pointer;padding:8px 10px;justify-content:center;gap:6px;background:var(--color-bg-card);border:1px solid rgba(197,160,89,0.3)">
-        <span>🧭</span>
-        <span style="font-weight:700;font-size:0.78rem">الاستخارة والهداية</span>
+    </div>
+
+    <!-- Footer: Quiet access to remaining categories without clutter -->
+    <div class="athkar-home-footer">
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:0.95rem">🗂️</span>
+        <span>يشمل أيضاً: الرزق، محو الذنوب، الشفاء، السفر، وبر الوالدين</span>
+      </div>
+      <button class="athkar-home-footer-more" onclick="App.openAthkarCategory('morning')">
+        <span>تصفح الفهرس كاملاً (١١ قسماً)</span>
+        <span class="material-symbols-outlined rtl-flip" style="font-size:0.9rem">arrow_forward</span>
       </button>
     </div>
   </section>
@@ -270,43 +284,119 @@ export function renderHome() {
   </section>
   `}
 
-  <!-- ⑤ Streak Card -->
-  <section class="card animate-fadeInUp" style="animation-delay:160ms">
-    <div class="card__header" style="margin-bottom:var(--space-4)">
+  <!-- ⑤ Streak Card: Vibrant Rounded Capsules -->
+  <section class="card animate-fadeInUp streak-card-vibrant" style="animation-delay:160ms">
+    <div class="card__header" style="margin-bottom:var(--space-3);align-items:flex-start">
       <div class="card__title-group">
         <div class="card__icon card__icon--gold">
           <span class="material-symbols-outlined icon-fill animate-fire">local_fire_department</span>
         </div>
         <div>
           <div class="card__title">سلسلة الأيام المتتالية</div>
-          <div class="card__subtitle">تبني عادة مباركة يوماً بعد يوم</div>
+          <div class="card__subtitle">إنجاز ${n(doneDaysCount)} من ٧ أيام هذا الأسبوع</div>
         </div>
       </div>
-      <div class="chip chip--gold">
-        <span>${n(maxStreak)} أيام</span>
-        <span>🔥</span>
+      <div class="streak-counter-badge">
+        <span class="material-symbols-outlined" style="font-size:1.05rem;color:var(--color-gold);display:inline-block">local_fire_department</span>
+        <span>${State.formatStreakText(maxStreak)}</span>
       </div>
     </div>
-    <!-- 7-day tracker -->
-    <div class="streak-row">
-      ${last7.map(day => `
-        <div class="streak-day ${day.isToday ? 'today' : ''}">
-          <span class="streak-day__label">${day.label}</span>
-          <div class="streak-day__dot ${day.isToday ? 'streak-day__dot--today' : day.done ? 'streak-day__dot--done' : 'streak-day__dot--empty'}">
-            <span class="material-symbols-outlined" style="font-size:1rem">
-              ${day.isToday ? 'star' : day.done ? 'check' : 'radio_button_unchecked'}
-            </span>
-          </div>
-        </div>
-      `).join('')}
+
+    <!-- Style Switcher: Try all 3 design ideas live -->
+    <div class="streak-style-switcher">
+      <button class="streak-style-btn ${streakStyle === 'capsules' ? 'active' : ''}" onclick="App.setStreakStyle('capsules')">
+        📌 الكبسولات المتوهجة
+      </button>
+      <button class="streak-style-btn ${streakStyle === 'timeline' ? 'active' : ''}" onclick="App.setStreakStyle('timeline')">
+        🌿 المسار المتصل
+      </button>
+      <button class="streak-style-btn ${streakStyle === 'calendar' ? 'active' : ''}" onclick="App.setStreakStyle('calendar')">
+        ⚪ التقويم المصغر
+      </button>
     </div>
-    <!-- Motivational caption -->
-    <div style="margin-top:var(--space-4);padding:var(--space-3) var(--space-4);border-radius:var(--radius-xl);background:var(--color-bg);border:1px solid var(--color-border);display:flex;align-items:center;gap:var(--space-2)">
-      <span class="material-symbols-outlined" style="font-size:1.125rem;color:var(--color-gold)">verified</span>
-      <p style="font-size:var(--font-size-xs);color:var(--text-secondary);font-weight:500">
-        ${maxStreak >= 7
-          ? 'استمر، أنت تبني عادة جميلة تثمر كل يوم بإذن الله.'
-          : 'خطوة صغيرة كل يوم تصنع الفارق. أنت في البداية الجميلة 🌱'}
+
+    <!-- Weekly completion micro progress bar -->
+    <div class="streak-progress-bar-wrap">
+      <div class="streak-progress-bar-fill" style="width:${Math.round((doneDaysCount / 7) * 100)}%"></div>
+    </div>
+
+    ${streakStyle === 'timeline' ? `
+      <!-- Option 2: Connected Journey Timeline -->
+      <div class="streak-timeline-container">
+        <div class="streak-timeline-line-bg"></div>
+        <div class="streak-timeline-line-fill" style="width:${Math.round((doneDaysCount / 7) * 100)}%"></div>
+        ${last7.map(day => {
+          const stateClass = day.isToday 
+            ? (day.done ? 'is-today is-done' : 'is-today is-pending')
+            : (day.done ? 'is-done' : 'is-empty');
+          return `
+            <div class="streak-timeline-node ${stateClass}" title="${day.fullLabel} ${day.dayNumber}">
+              <span class="streak-timeline-day-label">${day.dayName}</span>
+              <div class="streak-timeline-circle">
+                ${day.done 
+                  ? '<span class="material-symbols-outlined" style="font-size:0.95rem;font-weight:bold">check</span>' 
+                  : day.isToday 
+                    ? '<span class="material-symbols-outlined" style="font-size:1rem">star</span>' 
+                    : `<span style="font-size:0.75rem;font-weight:700;color:var(--text-muted)">${day.dayNumber}</span>`}
+              </div>
+              <span class="streak-timeline-date">${day.dayNumber}</span>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    ` : streakStyle === 'calendar' ? `
+      <!-- Option 3: Minimalist Modern Calendar Strip -->
+      <div class="streak-calendar-strip">
+        ${last7.map(day => {
+          const stateClass = day.isToday 
+            ? (day.done ? 'is-today is-done' : 'is-today is-pending')
+            : (day.done ? 'is-done' : 'is-empty');
+          return `
+            <div class="streak-calendar-card ${stateClass}" title="${day.fullLabel} ${day.dayNumber}">
+              <span class="streak-calendar-day">${day.dayName}</span>
+              <span class="streak-calendar-num">${day.dayNumber}</span>
+              <div class="streak-calendar-indicator"></div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    ` : `
+      <!-- Option 1: Vibrant Rounded Capsules -->
+      <div class="streak-capsules-grid">
+        ${last7.map(day => {
+          const stateClass = day.isToday 
+            ? (day.done ? 'is-today is-done' : 'is-today is-pending')
+            : (day.done ? 'is-done' : 'is-empty');
+          
+          return `
+            <div class="streak-capsule-item ${stateClass}" title="${day.fullLabel} ${day.dayNumber}">
+              ${day.isToday ? '<span class="streak-capsule-pill-badge">اليوم</span>' : ''}
+              <span class="streak-capsule-day">${day.dayName}</span>
+              <span class="streak-capsule-num">${day.dayNumber}</span>
+              <div class="streak-capsule-icon-wrap">
+                ${day.done 
+                  ? '<span class="material-symbols-outlined" style="font-size:0.95rem;font-weight:bold">check</span>' 
+                  : day.isToday 
+                    ? '<span class="material-symbols-outlined" style="font-size:0.9rem">star</span>' 
+                    : '<span class="streak-capsule-empty-dot"></span>'}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `}
+
+    <!-- Motivational Footer -->
+    <div class="streak-motivation-box">
+      <span class="material-symbols-outlined streak-motivation-icon">
+        ${isTodayDone ? 'verified' : 'auto_awesome'}
+      </span>
+      <p class="streak-motivation-text">
+        ${isTodayDone
+          ? 'ما شاء الله! أنجزت ورد اليوم وحافظت على توهج سلسلتك المباركة ✨'
+          : maxStreak >= 7
+            ? 'سلسلتك مشتعلة! أنجز ورد اليوم ليبقى الشعار متوهجاً 🔥'
+            : 'أنجز وردك اليوم لتلوين كبسولة اليوم وكسب نقاط الصحبه 🌱'}
       </p>
     </div>
   </section>

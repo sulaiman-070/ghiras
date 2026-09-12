@@ -149,19 +149,20 @@ export function renderWird() {
           </button>
         </div>
 
-        <!-- Middle: Page Flip Controls (Next / Prev) -->
+        <!-- Middle: Page Flip Controls (RTL Arabic Quran Reading Order: Right is Prev, Left is Next) -->
         <div class="mushaf-toolbar__group">
-          <!-- Next Page (in Arabic reading order: flips to next numerical page) -->
-          <button class="mushaf-tool-btn" ${currentPageNum < 604 ? `onclick="App.goToPage(${currentPageNum + 1})"` : 'disabled style="opacity:0.3;cursor:default"'} title="الصفحة التالية (${currentPageNum + 1})">
+          <!-- Previous Page Button (Right in RTL: goes back towards page 1) -->
+          <button class="mushaf-tool-btn" ${currentPageNum > 1 ? `onclick="App.goToPage(${currentPageNum - 1}, 'prev')"` : 'disabled style="opacity:0.3;cursor:default"'} title="الصفحة السابقة (${currentPageNum - 1})">
             <span class="material-symbols-outlined">chevron_right</span>
           </button>
 
-          <span style="font-family:var(--font-quran);font-weight:700;font-size:1rem;color:var(--mushaf-gold-dark);padding:0 var(--space-1);min-width:3rem;text-align:center" title="رقم الصفحة الحالية">
+          <!-- Current Page Number Badge -->
+          <span style="font-family:var(--font-quran);font-weight:700;font-size:1rem;color:var(--mushaf-gold-dark);padding:0 var(--space-1);min-width:3.2rem;text-align:center;cursor:pointer" title="رقم الصفحة الحالية — اضغط للانتقال السريع" onclick="App.openPageJumpModal()">
             ${n(currentPageNum)} / ٦٠٤
           </span>
 
-          <!-- Prev Page -->
-          <button class="mushaf-tool-btn" ${currentPageNum > 1 ? `onclick="App.goToPage(${currentPageNum - 1})"` : 'disabled style="opacity:0.3;cursor:default"'} title="الصفحة السابقة (${currentPageNum - 1})">
+          <!-- Next Page Button (Left in RTL: advances forward into the Quran) -->
+          <button class="mushaf-tool-btn" ${currentPageNum < 604 ? `onclick="App.goToPage(${currentPageNum + 1}, 'next')"` : 'disabled style="opacity:0.3;cursor:default"'} title="الصفحة التالية (${currentPageNum + 1})">
             <span class="material-symbols-outlined">chevron_left</span>
           </button>
         </div>
@@ -277,21 +278,40 @@ export function renderWird() {
         </div>
       </div>
 
-      <!-- Quick Page Navigation Bottom Bar -->
+      <!-- Swipe & Navigation Hint Banner -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0 var(--space-2);font-size:0.75rem;color:var(--text-muted);user-select:none">
+        <span style="display:inline-flex;align-items:center;gap:3px">
+          <span class="material-symbols-outlined" style="font-size:0.95rem">chevron_right</span>
+          <span>السابقة (يمين)</span>
+        </span>
+        <span style="display:inline-flex;align-items:center;gap:4px;color:var(--color-gold);font-weight:600">
+          <span class="material-symbols-outlined" style="font-size:0.9rem">swipe</span>
+          <span>اسحب لليسار أو انقر التالية للمتابعة</span>
+        </span>
+        <span style="display:inline-flex;align-items:center;gap:3px">
+          <span>التالية (يسار)</span>
+          <span class="material-symbols-outlined" style="font-size:0.95rem">chevron_left</span>
+        </span>
+      </div>
+
+      <!-- Quick Page Navigation Bottom Bar (RTL Quran System) -->
       <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)">
-        <button class="btn btn--secondary btn--sm" ${currentPageNum < 604 ? `onclick="App.goToPage(${currentPageNum + 1})"` : 'disabled'} style="flex:1">
-          <span class="material-symbols-outlined">arrow_forward</span>
-          <span>الصفحة التالية (ص ${n(currentPageNum + 1)})</span>
+        <!-- Previous Page (Right side in RTL): Return towards page 1 -->
+        <button class="btn btn--secondary btn--sm" ${currentPageNum > 1 ? `onclick="App.goToPage(${currentPageNum - 1}, 'prev')"` : 'disabled style="opacity:0.35;cursor:default"'} style="flex:1" title="الصفحة السابقة (ص ${currentPageNum - 1})">
+          <span class="material-symbols-outlined">chevron_right</span>
+          <span>السابقة (ص ${n(Math.max(1, currentPageNum - 1))})</span>
         </button>
 
-        <button class="btn btn--primary btn--sm" onclick="App.markPageRead()" style="flex:1">
+        <!-- Center: Mark Done & Seamlessly Advance to Next Page -->
+        <button class="btn btn--primary btn--sm" onclick="App.markPageRead()" style="flex:1.4;font-weight:700" title="تسجيل قراءة الصفحة والانتقال للصفحة التالية تلقائياً">
           <span class="material-symbols-outlined icon-fill">check_circle</span>
-          <span>قرأت هذه الصفحة</span>
+          <span>${currentPageNum < 604 ? 'أتممت الصفحة وتاليتها' : 'ختمت المصحف الشريف ✨'}</span>
         </button>
 
-        <button class="btn btn--secondary btn--sm" ${currentPageNum > 1 ? `onclick="App.goToPage(${currentPageNum - 1})"` : 'disabled'} style="flex:1">
-          <span>(ص ${n(currentPageNum - 1)}) السابقة</span>
-          <span class="material-symbols-outlined">arrow_back</span>
+        <!-- Next Page (Left side in RTL): Advance towards page 604 -->
+        <button class="btn btn--secondary btn--sm" ${currentPageNum < 604 ? `onclick="App.goToPage(${currentPageNum + 1}, 'next')"` : 'disabled style="opacity:0.35;cursor:default"'} style="flex:1" title="الصفحة التالية (ص ${currentPageNum + 1})">
+          <span>التالية (ص ${n(Math.min(604, currentPageNum + 1))})</span>
+          <span class="material-symbols-outlined">chevron_left</span>
         </button>
       </div>
 
@@ -419,10 +439,10 @@ export function renderWird() {
         <span id="audio-bar-repeat-label">مستمر</span>
       </button>
 
-      <!-- Player Controls -->
+      <!-- Player Controls (RTL Quran Order) -->
       <div style="display:flex;align-items:center;gap:10px">
         <button class="mushaf-audio-btn" onclick="App.audioPlayPrevAyah()" title="الآية السابقة">
-          <span class="material-symbols-outlined" style="font-size:1.6rem">skip_previous</span>
+          <span class="material-symbols-outlined rtl-flip" style="font-size:1.6rem">skip_previous</span>
         </button>
 
         <button class="mushaf-audio-btn mushaf-audio-btn--play" id="audio-bar-play-toggle" onclick="App.audioTogglePlayPause()" title="تشغيل / إيقاف مؤقت">
@@ -430,7 +450,7 @@ export function renderWird() {
         </button>
 
         <button class="mushaf-audio-btn" onclick="App.audioPlayNextAyah()" title="الآية التالية">
-          <span class="material-symbols-outlined" style="font-size:1.6rem">skip_next</span>
+          <span class="material-symbols-outlined rtl-flip" style="font-size:1.6rem">skip_next</span>
         </button>
       </div>
 

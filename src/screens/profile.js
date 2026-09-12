@@ -3,6 +3,7 @@
  */
 
 import { State } from '../state.js';
+import { Auth } from '../auth.js';
 import { GARDEN_STAGES, getGardenStage } from '../data/habits.js';
 import { getReciter } from '../data/quran.js';
 
@@ -15,6 +16,9 @@ export function renderProfile() {
   const joinDate = new Date(s.user.joinDate);
   const totalCompletions = s.habits.reduce((sum, h) => sum + h.totalCompletions, 0);
   const activeHabits = s.habits.filter(h => h.active).length;
+  const currentUser = Auth.getCurrentUser();
+  const userEmail = currentUser?.email || 'حساب غير متصل';
+  const isGuest = Auth.isGuest();
 
   return `
 <div class="screen-content" id="profile-content">
@@ -31,8 +35,12 @@ export function renderProfile() {
         ${s.user.avatar}
       </div>
       <div>
-        <h1 style="font-size:var(--font-size-xl);font-weight:700;color:var(--text-inverted)">${s.user.name}</h1>
-        <div style="display:flex;align-items:center;gap:var(--space-2);margin-top:var(--space-1)">
+        <h1 style="font-size:var(--font-size-xl);font-weight:700;color:var(--text-inverted);margin:0">${s.user.name}</h1>
+        <div style="font-size:0.75rem;color:rgba(255,253,249,0.8);margin-top:2px;display:flex;align-items:center;gap:4px">
+          <span class="material-symbols-outlined" style="font-size:0.875rem;color:var(--color-gold)">${isGuest ? 'person_outline' : 'mail'}</span>
+          <span>${userEmail}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:var(--space-2);margin-top:var(--space-2)">
           <div class="chip" style="background:rgba(184,142,79,0.25);color:var(--color-gold);border:1px solid rgba(184,142,79,0.4)">
             <span class="material-symbols-outlined icon-fill" style="font-size:0.875rem">eco</span>
             <span>المستوى ${n(s.user.level)}</span>
@@ -193,18 +201,60 @@ export function renderProfile() {
         <span class="material-symbols-outlined rtl-flip" style="color:var(--text-muted)">chevron_right</span>
       </div>
 
-      <!-- Reset (Dev) -->
-      <div class="settings-row" onclick="App.confirmReset()" style="border-color:rgba(186,26,26,0.2)">
+      <!-- Switch Account -->
+      <div class="settings-row" onclick="App.openSwitchAccount()">
         <div class="settings-row__left">
-          <div class="settings-row__icon" style="background:rgba(186,26,26,0.08)">
-            <span class="material-symbols-outlined" style="font-size:1.125rem;color:var(--color-error)">restart_alt</span>
+          <div class="settings-row__icon" style="background:rgba(184,142,79,0.15)">
+            <span class="material-symbols-outlined icon-fill" style="font-size:1.125rem;color:var(--color-gold)">switch_account</span>
           </div>
           <div>
-            <div class="settings-row__label" style="color:var(--color-error)">إعادة تعيين التطبيق</div>
-            <div class="settings-row__desc">حذف جميع البيانات (للتطوير)</div>
+            <div class="settings-row__label">تبديل الحساب</div>
+            <div class="settings-row__desc">الدخول بحساب شخصي آخر</div>
+          </div>
+        </div>
+        <span class="material-symbols-outlined rtl-flip" style="color:var(--text-muted)">chevron_right</span>
+      </div>
+
+      <!-- Logout -->
+      <div class="settings-row" onclick="App.confirmLogout()" style="border-color:rgba(186,26,26,0.15)">
+        <div class="settings-row__left">
+          <div class="settings-row__icon" style="background:rgba(186,26,26,0.08)">
+            <span class="material-symbols-outlined" style="font-size:1.125rem;color:var(--color-error)">logout</span>
+          </div>
+          <div>
+            <div class="settings-row__label" style="color:var(--color-error)">تسجيل الخروج</div>
+            <div class="settings-row__desc">حفظ التقدم الحالي والخروج من الحساب</div>
           </div>
         </div>
         <span class="material-symbols-outlined rtl-flip" style="color:var(--color-error);opacity:0.6">chevron_right</span>
+      </div>
+
+      <!-- Reset (Dev) -->
+      <div class="settings-row" onclick="App.confirmReset()" style="border-color:rgba(100,100,100,0.15);margin-top:var(--space-2)">
+        <div class="settings-row__left">
+          <div class="settings-row__icon" style="background:rgba(100,100,100,0.08)">
+            <span class="material-symbols-outlined" style="font-size:1.125rem;color:var(--text-muted)">restart_alt</span>
+          </div>
+          <div>
+            <div class="settings-row__label" style="color:var(--text-muted)">إعادة ضبط بيانات الحساب الحالي</div>
+            <div class="settings-row__desc">تصفير العدادات لهذا الحساب فقط</div>
+          </div>
+        </div>
+        <span class="material-symbols-outlined rtl-flip" style="color:var(--text-muted);opacity:0.6">chevron_right</span>
+      </div>
+
+      <!-- Cloud Server Sync (السحابة المركزية) -->
+      <div class="settings-row" onclick="App.openCloudSettings()" style="border-color:rgba(74,107,83,0.3);margin-top:var(--space-2)">
+        <div class="settings-row__left">
+          <div class="settings-row__icon" style="background:rgba(74,107,83,0.12)">
+            <span class="material-symbols-outlined" style="font-size:1.125rem;color:var(--color-primary)">cloud_sync</span>
+          </div>
+          <div>
+            <div class="settings-row__label" style="color:var(--color-primary)">السحابة المركزية وخادم Render ☁️</div>
+            <div class="settings-row__desc">ربط الموقع بالسيرفر المشترك لمزامنة المستخدمين والمجموعات لحظياً</div>
+          </div>
+        </div>
+        <span class="material-symbols-outlined rtl-flip" style="color:var(--color-primary);opacity:0.8">chevron_right</span>
       </div>
 
     </div>

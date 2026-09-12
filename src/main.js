@@ -3,8 +3,17 @@
  * Orchestrates routing, rendering, and all user interactions
  */
 
-import { State } from './state.js';
-import { renderHome }       from './screens/home.js';
+import { State } from './state.js?v=2.0';
+import { Auth }  from './auth.js?v=2.0';
+import {
+  renderAuthScreen,
+  setAuthMode,
+  getAuthMode,
+  setAuthError,
+  setAuthLoading,
+  togglePasswordVisibility
+} from './screens/auth_screen.js?v=2.0';
+import { renderHome }       from './screens/home.js?v=2.0';
 import {
   renderWird,
   setWirdTab,
@@ -14,13 +23,13 @@ import {
   setPrayerSub,
   setAthkarSearch,
   renderAthkarTabContent
-} from './screens/wird.js';
-import { ATHKAR_DUAS, ATHKAR_CATEGORIES } from './data/athkar_duas.js';
-import { renderGarden }     from './screens/garden.js';
-import { renderSuhba }      from './screens/suhba.js';
-import { renderProfile }    from './screens/profile.js';
-import { renderOnboarding, onboardingStepData } from './screens/onboarding.js';
-import { SOUL_REMEDIES, getSoulRemedy } from './data/remedies.js';
+} from './screens/wird.js?v=2.0';
+import { ATHKAR_DUAS, ATHKAR_CATEGORIES } from './data/athkar_duas.js?v=2.0';
+import { renderGarden }     from './screens/garden.js?v=2.0';
+import { renderSuhba, setSuhbaTab, getSuhbaTab } from './screens/suhba.js?v=2.0';
+import { renderProfile }    from './screens/profile.js?v=2.0';
+import { renderOnboarding, onboardingStepData } from './screens/onboarding.js?v=2.0';
+import { SOUL_REMEDIES, getSoulRemedy } from './data/remedies.js?v=2.0';
 import {
   getSurahById,
   getSurah,
@@ -75,13 +84,22 @@ let _audioState = {
 
 // ── Boot ───────────────────────────────────────────────────
 function boot() {
-  const s = State.get();
+  const currentUser = Auth.getCurrentUser();
 
-  if (!s.isOnboarded) {
-    showOnboarding();
+  if (!currentUser) {
+    showAuth();
   } else {
+    State.initForUser(currentUser);
     showApp();
-    navigate(s.ui.activeTab || 'home');
+    navigate(State.get().ui?.activeTab || 'home');
+
+    // Verify session in background
+    Auth.checkSession().then(res => {
+      if (res && res.state) {
+        State.initForUser(res.user, res.state);
+        updateHeader();
+      }
+    }).catch(() => {});
   }
 
   // Subscribe to state changes for reactive re-render
@@ -92,6 +110,222 @@ function boot() {
 
   // Start Smart Quran Alarm Clock (checks every 15s)
   startAlarmClock(() => State.getReminders(), handleAlarmTrigger);
+
+  // Initialize Touch Gestures & Keyboard Navigation for Mushaf
+  initMushafGestureHandlers();
+}
+
+let _mushafGesturesBound = false;
+function initMushafGestureHandlers() {
+  if (_mushafGesturesBound) return;
+  _mushafGesturesBound = true;
+
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchStartTime = 0;
+
+  document.addEventListener('touchstart', (e) => {
+    if (_currentScreen !== 'wird') return;
+    const mushafEl = document.getElementById('mushaf-page') || document.getElementById('wird-content');
+    if (!mushafEl || !mushafEl.contains(e.target)) return;
+
+    // Ignore touches on buttons, inputs, chips, or modal triggers
+    if (e.target.closest('button, input, select, .chip, #ayah-action-sheet, .modal')) return;
+
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+    touchStartTime = Date.now();
+  }, { passive: true });
+
+  document.addEventListener('touchend', (e) => {
+    if (_currentScreen !== 'wird') return;
+    const mushafEl = document.getElementById('mushaf-page') || document.getElementById('wird-content');
+    if (!mushafEl || !mushafEl.contains(e.target)) return;
+
+    if (e.target.closest('button, input, select, .chip, #ayah-action-sheet, .modal')) return;
+
+    const touchEndX = e.changedTouches[0].screenX;
+    const touchEndY = e.changedTouches[0].screenY;
+    const duration = Date.now() - touchStartTime;
+
+    const deltaX = touchEndX - touchStartX;
+    const deltaY = touchEndY - touchStartY;
+
+    // Must be a distinct horizontal swipe within 700ms
+    if (duration < 700 && Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.3) {
+      const s = State.get();
+      const curPage = s.quranProgress.currentPage || 1;
+
+      if (deltaX < 0) {
+        // Swiped towards LEFT: Next Page in Arabic Quran reading order
+        if (curPage < 604) {
+          goToPage(curPage + 1, 'next');
+        }
+      } else {
+        // Swiped towards RIGHT: Previous Page in Arabic Quran reading order
+        if (curPage > 1) {
+          goToPage(curPage - 1, 'prev');
+        }
+      }
+    }
+  }, { passive: true });
+
+  // Keyboard navigation for Quran reader:
+  // ArrowLeft (←) = Next Page in Quran RTL order
+  // ArrowRight (→) = Previous Page in Quran RTL order
+  window.addEventListener('keydown', (e) => {
+    if (_currentScreen !== 'wird') return;
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+    const overlay = document.getElementById('modal-overlay');
+    if (overlay && overlay.classList.contains('open')) return;
+
+    const s = State.get();
+    const curPage = s.quranProgress.currentPage || 1;
+
+    if (e.key === 'ArrowLeft') {
+      if (curPage < 604) {
+        e.preventDefault();
+        goToPage(curPage + 1, 'next');
+      }
+    } else if (e.key === 'ArrowRight') {
+      if (curPage > 1) {
+        e.preventDefault();
+        goToPage(curPage - 1, 'prev');
+      }
+    }
+  });
+}
+
+// ── Auth Handlers ──────────────────────────────────────────
+function showAuth() {
+  const shell = document.getElementById('app-shell');
+  if (shell) {
+    shell.innerHTML = renderAuthScreen();
+  }
+}
+
+function switchAuthMode(mode) {
+  const emailEl = document.getElementById('auth-email-input');
+  const nameEl = document.getElementById('auth-name-input');
+  const savedEmail = emailEl ? emailEl.value : '';
+  const savedName = nameEl ? nameEl.value : '';
+
+  setAuthMode(mode);
+  showAuth();
+
+  if (savedEmail) {
+    const newEmail = document.getElementById('auth-email-input');
+    if (newEmail) newEmail.value = savedEmail;
+  }
+  if (savedName) {
+    const newName = document.getElementById('auth-name-input');
+    if (newName) newName.value = savedName;
+  }
+}
+
+function toggleAuthPassword() {
+  const passInput = document.getElementById('auth-password-input');
+  const eyeIcon = document.getElementById('auth-eye-icon');
+  if (passInput) {
+    const isPass = passInput.type === 'password';
+    passInput.type = isPass ? 'text' : 'password';
+    if (eyeIcon) {
+      eyeIcon.textContent = isPass ? 'visibility_off' : 'visibility';
+    }
+  } else {
+    togglePasswordVisibility();
+    showAuth();
+  }
+}
+
+function dismissAuthError() {
+  setAuthError(null);
+  const errorEl = document.getElementById('auth-error-banner');
+  if (errorEl) {
+    errorEl.remove();
+  }
+}
+
+async function handleAuthSubmit(event) {
+  if (event) event.preventDefault();
+
+  const emailEl = document.getElementById('auth-email-input');
+  const passEl = document.getElementById('auth-password-input');
+  const nameEl = document.getElementById('auth-name-input');
+
+  const email = emailEl ? emailEl.value.trim() : '';
+  const password = passEl ? passEl.value : '';
+  const name = nameEl ? nameEl.value.trim() : '';
+  const mode = getAuthMode();
+
+  setAuthLoading(true);
+  setAuthError(null);
+  showAuth();
+
+  try {
+    let result;
+    if (mode === 'register') {
+      result = await Auth.register(name, email, password);
+    } else {
+      result = await Auth.login(email, password);
+    }
+
+    setAuthLoading(false);
+    State.initForUser(result.user, result.state);
+    showApp();
+    navigate('home');
+    State.showToast(`🌿 مرحباً بك، ${result.user.name}`);
+  } catch (err) {
+    setAuthLoading(false);
+    setAuthError(err.message || 'تعذر إتمام العملية');
+    showAuth();
+  }
+}
+
+function continueAsGuest() {
+  const guestUser = Auth.loginAsGuest('زائر كريم');
+  State.initForUser(guestUser);
+  showApp();
+  navigate('home');
+  State.showToast('🌿 تم الدخول كزائر. نرحب بك!');
+}
+
+function openSwitchAccount() {
+  showAuth();
+}
+
+function confirmLogout() {
+  openModal(`
+    <div style="text-align:center;padding:var(--space-4)">
+      <div style="font-size:3rem;margin-bottom:var(--space-3)">🚪</div>
+      <h3 style="font-size:var(--font-size-xl);font-weight:700;color:var(--text-primary);margin-bottom:var(--space-2)">
+        تسجيل الخروج
+      </h3>
+      <p style="font-size:var(--font-size-sm);color:var(--text-secondary);line-height:1.6;margin-bottom:var(--space-5)">
+        سيتم حفظ تقدمك الحالي في المصحف وحديقة الطاعات بأمان، لتتمكن من العودة إليه عند تسجيل الدخول مجدداً.
+      </p>
+      <div style="display:flex;gap:var(--space-3)">
+        <button onclick="App.doLogout()" style="
+          flex:1;padding:12px;border:none;border-radius:var(--radius-xl);
+          background:var(--color-error);color:#fff;font-weight:700;font-size:0.9375rem;cursor:pointer;font-family:inherit">
+          تأكيد الخروج
+        </button>
+        <button onclick="App.closeModal()" style="
+          flex:1;padding:12px;border:1px solid var(--color-border);border-radius:var(--radius-xl);
+          background:var(--color-bg-secondary);color:var(--text-primary);font-weight:600;font-size:0.9375rem;cursor:pointer;font-family:inherit">
+          إلغاء
+        </button>
+      </div>
+    </div>
+  `);
+}
+
+async function doLogout() {
+  closeModal();
+  await Auth.logout();
+  State.clearUserState();
+  showAuth();
+  State.showToast('تم تسجيل الخروج بنجاح');
 }
 
 // ── Onboarding ─────────────────────────────────────────────
@@ -284,6 +518,74 @@ function navigate(screenId) {
   // Scroll to top
   container.scrollTop = 0;
   updateHeader();
+
+  // Sync live companion stats if on suhba screen
+  if (screenId === 'suhba') {
+    syncSuhbaLive();
+  }
+}
+
+async function syncSuhbaLive() {
+  try {
+    const s = State.get();
+    const comps = s.suhba?.companions || [];
+    const userIds = comps.map(c => c.userTag || c.userId || c.id).filter(Boolean);
+
+    // 1. Batch fetch companion live stats
+    const apiBase = Auth.getApiBaseUrl();
+    if (userIds.length > 0) {
+      try {
+        const res = await fetch(`${apiBase}/api/users/stats-batch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userIds })
+        });
+        const ct = res.headers.get('content-type') || '';
+        if (res.ok && ct.includes('json')) {
+          const data = await res.json();
+          if (data.stats && data.stats.length > 0) {
+            State.updateCompanionsFromBatch(data.stats);
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 2. Fetch user's competition groups
+    try {
+      const token = Auth.getToken();
+      const currentUser = Auth.getCurrentUser();
+      const groupRes = await fetch(`${apiBase}/api/groups/my`, {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+          'x-guest-id': currentUser ? currentUser.id : 'guest_user'
+        }
+      });
+      const groupCt = groupRes.headers.get('content-type') || '';
+      if (groupRes.ok && groupCt.includes('json')) {
+        const groupData = await groupRes.json();
+        if (Array.isArray(groupData.groups)) {
+          State.setGroups(groupData.groups);
+        }
+      }
+    } catch (e) {}
+
+    // 3. Fetch incoming spiritual nudges
+    await loadIncomingNudges();
+
+    // Re-render if still on Suhba screen
+    if (_currentScreen === 'suhba') {
+      const container = document.getElementById('screen-container');
+      if (container) {
+        container.innerHTML = `
+          <div class="screen active" id="screen-suhba" role="tabpanel">
+            ${SCREENS.suhba.render()}
+          </div>
+        `;
+      }
+    }
+  } catch (err) {
+    // Non-critical background sync
+  }
 }
 
 // ── Header ──────────────────────────────────────────────────
@@ -397,24 +699,41 @@ function switchWirdTab(tab) {
   }
 }
 
-function goToPage(pageNum) {
+function goToPage(pageNum, direction = 'auto') {
   closeAyahAction();
+  const currentP = State.get().quranProgress.currentPage || 1;
   const p = Math.max(1, Math.min(604, parseInt(pageNum, 10) || 1));
+
+  let animDir = direction;
+  if (animDir === 'auto') {
+    animDir = p > currentP ? 'next' : (p < currentP ? 'prev' : null);
+  }
+
   State.set(s => {
     s.quranProgress.currentPage = p;
     s.quranProgress.lastReadPage = p;
   });
   navigate('wird');
 
-  // Smooth scroll to top of Mushaf page
+  // Trigger page flip animation and smooth scroll
   setTimeout(() => {
     const page = document.getElementById('mushaf-page');
-    if (page) page.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (page) {
+      page.classList.remove('mushaf-flip-next', 'mushaf-flip-prev');
+      if (animDir === 'next') {
+        void page.offsetWidth;
+        page.classList.add('mushaf-flip-next');
+      } else if (animDir === 'prev') {
+        void page.offsetWidth;
+        page.classList.add('mushaf-flip-prev');
+      }
+      page.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
     if (_audioState.isPlaying || _audioInstance) {
       highlightPlayingAyah(_audioState.surahNumber, _audioState.ayahNumber);
       updateAudioBarUI();
     }
-  }, 100);
+  }, 60);
 }
 
 function selectSurah(surahId) {
@@ -1061,12 +1380,36 @@ function markPageRead() {
   const curPage = s.quranProgress.currentPage || 1;
   const n = State.toArabicNum;
 
+  // Record progress in state and complete habit
   State.updateQuranProgress(15, s.quranProgress.currentSurahId, 1, curPage);
   State.completeHabit('quran-reading', 'min');
-  State.showToast(`📖 تم تسجيل صفحة ${n(curPage)} في وردك — بارك الله فيك ✨`);
 
-  // Visual feedback: mark all ayahs on current page as read
+  // Visual feedback: mark ayahs on this page as read
   document.querySelectorAll('.mushaf-ayah').forEach(el => el.classList.add('read-done'));
+
+  if (curPage < 604) {
+    const nextPage = curPage + 1;
+    State.showToast(`📖 مبارك! تم تسجيل ص ${n(curPage)} — الانتقال إلى ص ${n(nextPage)} 🌿`);
+    setTimeout(() => {
+      goToPage(nextPage, 'next');
+    }, 450);
+  } else {
+    State.showToast('🎉 مبارك ختم القرآن الكريم كاملاً! تقبل الله منكم ✨');
+    openModal(`
+      <div style="text-align:center;padding:var(--space-4)">
+        <div style="font-size:4rem;margin-bottom:var(--space-2)">🌟</div>
+        <h3 style="font-size:var(--font-size-2xl);font-weight:700;color:var(--text-primary);margin-bottom:var(--space-2)">
+          هنيئاً لك ختم المصحف الشريف!
+        </h3>
+        <p style="font-size:var(--font-size-base);color:var(--text-secondary);line-height:1.9;margin-bottom:var(--space-4)">
+          أتممت قراءة القرآن الكريم كاملاً (٦٠٤ صفحات). تقبل الله طاعاتكم وكتب لكم بكل حرف حسنة إلى عشر أمثالها.
+        </p>
+        <button class="btn btn--primary" style="width:100%" onclick="App.closeModal()">
+          الحمد لله رب العالمين
+        </button>
+      </div>
+    `);
+  }
 }
 
 function openTafseeer() {
@@ -2055,6 +2398,47 @@ function openKhatmaCertificate() {
   `);
 }
 
+// ── Khatma Plan Handlers ───────────────────────────────────
+function enableKhatma(enabled) {
+  State.setKhatmaEnabled(enabled);
+  if (_currentScreen === 'garden') {
+    navigate('garden');
+  }
+  if (enabled) {
+    State.showToast('🌿 مبارك! تم تفعيل مسار ختمة القرآن الكريم');
+  } else {
+    State.showToast('تم إيقاف مسار الختمة مؤقتاً');
+  }
+}
+
+function selectKhatmaDuration(months) {
+  State.setKhatmaDuration(months);
+  if (_currentScreen === 'garden') {
+    navigate('garden');
+  }
+  const m = Number(months);
+  const text = m === 1 ? 'شهر واحد (٢٠ صفحة يومياً)' : m === 2 ? 'شهرين (١٠ صفحات يومياً)' : m === 3 ? '٣ أشهر (٧ صفحات يومياً)' : '٦ أشهر (٣ صفحات يومياً)';
+  State.showToast(`⏱️ تم ضبط خطة الختم في: ${text}`);
+}
+
+function toggleKhatmaPrayer(prayerKey) {
+  const isDone = State.toggleKhatmaPrayerDone(prayerKey);
+  if (_currentScreen === 'garden') {
+    navigate('garden');
+  }
+  if (isDone) {
+    State.showToast('تقبّل الله طاعتكم! تم إنجاز ورد الصلاة (+١٥ XP) ✨');
+  } else {
+    State.showToast('تم إلغاء تحديد الورد');
+  }
+}
+
+function goToKhatmaReading(targetPage) {
+  const page = targetPage || State.get().quranProgress?.currentPage || 1;
+  goToPage(page);
+  State.showToast(`📖 ورد الصلاة المبارك — ص ${State.toArabicNum(page)}`);
+}
+
 function openFontSize() {
   const s = State.get();
   openModal(`
@@ -2138,6 +2522,978 @@ function openGroup(groupId) {
   State.showToast('🌿 تفاصيل المجموعة قادمة قريباً');
 }
 
+// ── Suhba (Companions & Competition Groups) ──────────────────
+let _lastFoundCompanion = null;
+
+function copyMyUserTag(tag) {
+  const t = tag || State.getUserTag() || 'GHR-1024';
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(t).then(() => {
+      State.showToast(`🌿 تم نسخ معرّفك (${t})! شاركه مع رفقائك ليضيفوك.`);
+    }).catch(() => {
+      prompt('انسخ معرّفك الشخصي لمشاركته مع أصدقائك:', t);
+    });
+  } else {
+    prompt('انسخ معرّفك الشخصي لمشاركته مع أصدقائك:', t);
+  }
+}
+
+function copyGroupCode(code) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(code).then(() => {
+      State.showToast(`✨ تم نسخ رمز المجموعة (${code})! شاركه مع أحبابك.`);
+    }).catch(() => {
+      prompt('انسخ رمز المجموعة لمشاركته مع أصدقائك:', code);
+    });
+  } else {
+    prompt('انسخ رمز المجموعة لمشاركته مع أصدقائك:', code);
+  }
+}
+
+function switchSuhbaTab(tab) {
+  setSuhbaTab(tab);
+  if (_currentScreen === 'suhba') {
+    navigate('suhba');
+  }
+}
+
+async function openAddCompanionByIdModal() {
+  _lastFoundCompanion = null;
+  openModal(`
+    <div style="direction:rtl;padding-bottom:var(--space-2)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:var(--space-3)">
+        <div style="width:2.8rem;height:2.8rem;border-radius:50%;background:rgba(184,142,79,0.15);color:var(--color-gold);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <span class="material-symbols-outlined" style="font-size:1.5rem">person_add</span>
+        </div>
+        <div>
+          <h3 style="font-size:var(--font-size-xl);font-weight:800;color:var(--text-primary);margin:0">إضافة رفيق بالمعرّف (ID)</h3>
+          <p style="font-size:0.8rem;color:var(--text-secondary);margin:2px 0 0 0">ابحث عن رفيقك بالـ ID أو البريد لمتابعة تقدمه في القرآن</p>
+        </div>
+      </div>
+
+      <div style="margin-bottom:var(--space-3)">
+        <label style="display:block;font-size:0.8125rem;font-weight:700;color:var(--text-primary);margin-bottom:6px">معرّف الرفيق (User ID أو البريد):</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="comp-search-query" class="form-input" placeholder="مثال: GHR-1042 أو 1042 أو البريد..." style="flex:1;direction:ltr;text-align:right" autofocus onkeydown="if(event.key==='Enter')App.searchCompanionByTag()">
+          <button type="button" onclick="App.searchCompanionByTag()" class="btn btn--primary" style="padding:0 16px;white-space:nowrap;font-weight:700">
+            <span>بحث</span>
+            <span class="material-symbols-outlined" style="font-size:1.1rem">search</span>
+          </button>
+        </div>
+        <div style="font-size:0.75rem;color:var(--text-muted);margin-top:6px">
+          💡 جرّب إضافة: <button type="button" onclick="document.getElementById('comp-search-query').value='GHR-1042';App.searchCompanionByTag()" style="background:none;border:none;color:var(--color-gold-dark);font-weight:700;cursor:pointer;padding:0;text-decoration:underline">عمر (GHR-1042)</button> أو <button type="button" onclick="document.getElementById('comp-search-query').value='GHR-2085';App.searchCompanionByTag()" style="background:none;border:none;color:var(--color-gold-dark);font-weight:700;cursor:pointer;padding:0;text-decoration:underline">عبدالله (GHR-2085)</button>
+        </div>
+      </div>
+
+      <!-- Live Search Result Container -->
+      <div id="comp-search-result-box" style="margin-bottom:var(--space-3)"></div>
+
+      <div id="comp-relation-box" style="display:none;margin-bottom:var(--space-4)">
+        <label style="display:block;font-size:0.8125rem;font-weight:700;color:var(--text-primary);margin-bottom:6px">صفة الرفيق:</label>
+        <select id="comp-rel-select" class="form-input">
+          <option value="أخ / أخت">🏠 أخ / أخت (عائلة)</option>
+          <option value="صديق مقرب" selected>🤝 صديق مقرب</option>
+          <option value="رفيق حلقة قرآن">📖 رفيق حلقة قرآن</option>
+          <option value="زميل دراسة / عمل">💼 زميل دراسة أو عمل</option>
+          <option value="صاحب خير">🌱 صاحب خير</option>
+        </select>
+      </div>
+
+      <div style="display:flex;gap:var(--space-2)">
+        <button id="comp-add-submit-btn" class="btn btn--primary" onclick="App.submitAddFoundCompanion()" style="flex:1;display:none">
+          <span class="material-symbols-outlined">check_circle</span>
+          <span>إضافة إلى صحبتي</span>
+        </button>
+        <button class="btn btn--secondary" onclick="App.closeModal()" style="flex:1">
+          إلغاء
+        </button>
+      </div>
+    </div>
+  `);
+}
+
+async function searchCompanionByTag() {
+  const queryEl = document.getElementById('comp-search-query');
+  const resultBox = document.getElementById('comp-search-result-box');
+  const relationBox = document.getElementById('comp-relation-box');
+  const submitBtn = document.getElementById('comp-add-submit-btn');
+
+  if (!queryEl || !resultBox) return;
+  const q = queryEl.value.trim();
+
+  if (!q) {
+    resultBox.innerHTML = `<div style="background:#FDF3E7;color:#B88E4F;padding:10px;border-radius:12px;font-size:0.8125rem;text-align:center">يرجى كتابة معرّف أو كود الرفيق للبحث</div>`;
+    return;
+  }
+
+  resultBox.innerHTML = `
+    <div style="text-align:center;padding:14px;color:var(--text-secondary);font-size:0.85rem">
+      <div style="display:inline-block;animation:spin 1s linear infinite;font-size:1.4rem">⏳</div>
+      <div>جاري البحث عن الرفيق بالـ ID...</div>
+    </div>
+  `;
+
+  try {
+    let foundUser = null;
+    const apiBase = Auth.getApiBaseUrl();
+    try {
+      const res = await fetch(`${apiBase}/api/users/lookup?query=${encodeURIComponent(q)}`);
+      const ct = res.headers.get('content-type') || '';
+      if (res.ok && ct.includes('json')) {
+        const data = await res.json();
+        if (data.success && data.user) {
+          foundUser = data.user;
+        }
+      }
+    } catch (e) {}
+
+    // Fallback: check local storage users and pre-built companions
+    if (!foundUser) {
+      const MOCK_COMPANIONS = [
+        { id: 'usr_mock_1', userTag: 'عمر#1042', name: 'عمر الفاروق', avatar: 'ع', currentPage: 124, currentSurahName: 'المائدة', currentJuzName: 'الجزء السادس', xp: 450, streak: 12, todayDone: true },
+        { id: 'usr_mock_2', userTag: 'فاطمة#3819', name: 'فاطمة الزهراء', avatar: 'ف', currentPage: 45, currentSurahName: 'البقرة', currentJuzName: 'الجزء الثالث', xp: 620, streak: 19, todayDone: true },
+        { id: 'usr_mock_3', userTag: 'عبدالله#7721', name: 'عبدالله بن مسعود', avatar: 'ع', currentPage: 280, currentSurahName: 'الإسراء', currentJuzName: 'الجزء الخامس عشر', xp: 890, streak: 30, todayDone: true },
+        { id: 'usr_mock_4', userTag: 'مريم#5512', name: 'مريم الصديقة', avatar: 'م', currentPage: 512, currentSurahName: 'الفتح', currentJuzName: 'الجزء السادس والعشرون', xp: 340, streak: 8, todayDone: false }
+      ];
+      let localUsers = [];
+      try {
+        localUsers = JSON.parse(localStorage.getItem('ghiras_local_users_db') || '[]');
+      } catch (e) {}
+      const allCandidates = [...MOCK_COMPANIONS, ...localUsers];
+      const qLower = q.toLowerCase();
+      foundUser = allCandidates.find(u => 
+        (u.userTag && u.userTag.toLowerCase() === qLower) ||
+        (u.name && u.name.toLowerCase().includes(qLower)) ||
+        (u.email && u.email.toLowerCase() === qLower)
+      );
+    }
+
+    if (!foundUser) {
+      resultBox.innerHTML = `
+        <div style="background:#FDF3E7;border:1px solid rgba(184,142,79,0.3);color:#B88E4F;padding:12px;border-radius:14px;font-size:0.85rem;text-align:center;line-height:1.7">
+          ⚠️ لم يتم العثور على مستخدم بهذا المعرّف.<br>
+          <span style="font-size:0.75rem;color:var(--text-secondary)">جرّب البحث بأحد الرفقاء المقترحين مثل (عمر#1042 أو فاطمة#3819 أو عبدالله#7721)</span>
+        </div>
+      `;
+      _lastFoundCompanion = null;
+      if (relationBox) relationBox.style.display = 'none';
+      if (submitBtn) submitBtn.style.display = 'none';
+      return;
+    }
+
+    const u = foundUser;
+    _lastFoundCompanion = u;
+
+    resultBox.innerHTML = `
+      <div style="background:linear-gradient(135deg, rgba(74,107,83,0.08) 0%, rgba(184,142,79,0.12) 100%);border:1.5px solid var(--color-gold);border-radius:16px;padding:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:3rem;height:3rem;border-radius:50%;background:var(--color-primary);color:var(--color-gold);display:flex;align-items:center;justify-content:center;font-size:1.25rem;font-weight:800">
+              ${u.avatar || u.name.charAt(0)}
+            </div>
+            <div>
+              <div style="font-weight:800;font-size:1.05rem;color:var(--text-primary)">${u.name}</div>
+              <div style="font-family:monospace;font-size:0.75rem;color:var(--color-primary);font-weight:700;direction:ltr">
+                ${u.userTag}
+              </div>
+            </div>
+          </div>
+          <span class="chip" style="background:#E8F0E9;color:#2D5A3D;font-weight:700;font-size:0.75rem;padding:4px 8px">
+            تم العثور عليه ✨
+          </span>
+        </div>
+
+        <div style="background:rgba(255,255,255,0.8);border-radius:12px;padding:10px;display:flex;justify-content:space-around;text-align:center;font-size:0.8rem">
+          <div>
+            <div style="font-weight:800;color:var(--color-gold)">📖 صفحة ${State.toArabicNum(u.currentPage || 1)}</div>
+            <div style="font-size:0.6875rem;color:var(--text-muted)">${u.currentSurahName || 'الفاتحة'}</div>
+          </div>
+          <div style="width:1px;background:var(--color-border)"></div>
+          <div>
+            <div style="font-weight:800;color:var(--color-primary)">⭐ ${State.toArabicNum(u.xp || 0)}</div>
+            <div style="font-size:0.6875rem;color:var(--text-muted)">XP نقطة</div>
+          </div>
+          <div style="width:1px;background:var(--color-border)"></div>
+          <div>
+            <div style="font-weight:800;color:var(--color-sage)">🔥 ${State.toArabicNum(u.streak || 0)}</div>
+            <div style="font-size:0.6875rem;color:var(--text-muted)">أيام متتالية</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    if (relationBox) relationBox.style.display = 'block';
+    if (submitBtn) submitBtn.style.display = 'flex';
+
+  } catch (err) {
+    resultBox.innerHTML = `<div style="background:#fce8e6;color:#ba1a1a;padding:10px;border-radius:12px;font-size:0.8125rem;text-align:center">حدث خطأ في البحث، يرجى المحاولة لاحقاً</div>`;
+  }
+}
+
+function submitAddFoundCompanion() {
+  if (!_lastFoundCompanion) {
+    State.showToast('⚠️ يرجى البحث عن الرفيق أولاً');
+    return;
+  }
+
+  const relEl = document.getElementById('comp-rel-select');
+  const relation = relEl ? relEl.value : 'رفيق درب';
+
+  State.addCompanion({
+    userId: _lastFoundCompanion.id,
+    userTag: _lastFoundCompanion.userTag,
+    name: _lastFoundCompanion.name,
+    avatar: _lastFoundCompanion.avatar,
+    currentPage: _lastFoundCompanion.currentPage,
+    currentSurahName: _lastFoundCompanion.currentSurahName,
+    currentJuzName: _lastFoundCompanion.currentJuzName,
+    xp: _lastFoundCompanion.xp,
+    streak: _lastFoundCompanion.streak,
+    todayDone: _lastFoundCompanion.todayDone,
+    relation: relation
+  });
+
+  closeModal();
+  if (_currentScreen === 'suhba') {
+    navigate('suhba');
+  }
+  State.showToast(`🌿 تم إضافة ${_lastFoundCompanion.name} إلى صحبتك الصالحة!`);
+  _lastFoundCompanion = null;
+}
+
+async function addDemoCompanionQuick(tag) {
+  const MOCK_COMPANIONS = [
+    { id: 'usr_mock_1', userTag: 'عمر#1042', name: 'عمر الفاروق', avatar: 'ع', currentPage: 124, currentSurahName: 'المائدة', currentJuzName: 'الجزء السادس', xp: 450, streak: 12, todayDone: true },
+    { id: 'usr_mock_2', userTag: 'فاطمة#3819', name: 'فاطمة الزهراء', avatar: 'ف', currentPage: 45, currentSurahName: 'البقرة', currentJuzName: 'الجزء الثالث', xp: 620, streak: 19, todayDone: true },
+    { id: 'usr_mock_3', userTag: 'عبدالله#7721', name: 'عبدالله بن مسعود', avatar: 'ع', currentPage: 280, currentSurahName: 'الإسراء', currentJuzName: 'الجزء الخامس عشر', xp: 890, streak: 30, todayDone: true },
+    { id: 'usr_mock_4', userTag: 'مريم#5512', name: 'مريم الصديقة', avatar: 'م', currentPage: 512, currentSurahName: 'الفتح', currentJuzName: 'الجزء السادس والعشرون', xp: 340, streak: 8, todayDone: false }
+  ];
+
+  let comp = MOCK_COMPANIONS.find(c => c.userTag === tag);
+  const apiBase = Auth.getApiBaseUrl();
+  if (!comp) {
+    try {
+      const res = await fetch(`${apiBase}/api/users/lookup?query=${encodeURIComponent(tag)}`);
+      const ct = res.headers.get('content-type') || '';
+      if (res.ok && ct.includes('json')) {
+        const data = await res.json();
+        if (data.success && data.user) comp = data.user;
+      }
+    } catch (e) {}
+  }
+
+  if (comp) {
+    State.addCompanion({
+      userId: comp.id,
+      userTag: comp.userTag,
+      name: comp.name,
+      avatar: comp.avatar,
+      currentPage: comp.currentPage,
+      currentSurahName: comp.currentSurahName,
+      currentJuzName: comp.currentJuzName,
+      xp: comp.xp || 200,
+      streak: comp.streak || 5,
+      todayDone: comp.todayDone !== undefined ? comp.todayDone : true,
+      relation: 'صديق مقرب'
+    });
+    if (_currentScreen === 'suhba') {
+      navigate('suhba');
+    }
+    State.showToast(`🌿 تم إضافة ${comp.name} إلى صحبتك بنجاح!`);
+  } else {
+    State.showToast('تعذر إضافة الرفيق');
+  }
+}
+
+// ── Competition Groups Handlers ──────────────────────────────
+function openCreateGroupModal() {
+  openModal(`
+    <div style="direction:rtl;padding-bottom:var(--space-2)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:var(--space-3)">
+        <div style="width:2.8rem;height:2.8rem;border-radius:50%;background:rgba(184,142,79,0.15);color:var(--color-gold);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <span class="material-symbols-outlined" style="font-size:1.5rem">groups</span>
+        </div>
+        <div>
+          <h3 style="font-size:var(--font-size-xl);font-weight:800;color:var(--text-primary);margin:0">إنشاء حلقة تنافس جديدة</h3>
+          <p style="font-size:0.8rem;color:var(--text-secondary);margin:2px 0 0 0">أنشئ مجموعة وشارك رمزها مع إخوانك أو أصدقائك للتنافس</p>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:var(--space-3);margin-bottom:var(--space-4)">
+        <div>
+          <label style="display:block;font-size:0.8125rem;font-weight:700;color:var(--text-primary);margin-bottom:4px">اسم الحلقة أو المجموعة:</label>
+          <input type="text" id="grp-name-input" class="form-input" placeholder="مثال: تحدي الإخوة في القرآن، صحبة الفجر..." maxlength="40" autofocus>
+        </div>
+
+        <div>
+          <label style="display:block;font-size:0.8125rem;font-weight:700;color:var(--text-primary);margin-bottom:4px">فئة التنافس:</label>
+          <select id="grp-cat-input" class="form-input">
+            <option value="إخوة وعائلة" selected>👨‍👩‍👧‍👦 إخوة وعائلة</option>
+            <option value="أصدقاء وأحباب">🤝 أصدقاء وأحباب</option>
+            <option value="حلقة مسجد / تحفيظ">🕌 حلقة مسجد أو تحفيظ</option>
+            <option value="زملاء دراسة">🎓 زملاء دراسة</option>
+            <option value="عامة">🌿 عامة</option>
+          </select>
+        </div>
+
+        <div>
+          <label style="display:block;font-size:0.8125rem;font-weight:700;color:var(--text-primary);margin-bottom:4px">رسالة تشجيعية أو وصف:</label>
+          <textarea id="grp-desc-input" class="form-input" rows="2" placeholder="مثال: نتنافس على قراءة جزء يومياً وتثبيت الورد..."></textarea>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:var(--space-2)">
+        <button class="btn btn--primary" onclick="App.submitCreateGroup()" style="flex:1">
+          <span class="material-symbols-outlined">add_circle</span>
+          <span>إنشاء وتوليد الرمز</span>
+        </button>
+        <button class="btn btn--secondary" onclick="App.closeModal()">
+          إلغاء
+        </button>
+      </div>
+    </div>
+  `);
+}
+
+async function submitCreateGroup() {
+  const nameEl = document.getElementById('grp-name-input');
+  const catEl = document.getElementById('grp-cat-input');
+  const descEl = document.getElementById('grp-desc-input');
+
+  const name = nameEl ? nameEl.value.trim() : '';
+  const category = catEl ? catEl.value : 'أصدقاء';
+  const description = descEl ? descEl.value.trim() : '';
+
+  if (!name) {
+    State.showToast('⚠️ يرجى كتابة اسم المجموعة');
+    return;
+  }
+
+  try {
+    const apiBase = Auth.getApiBaseUrl();
+    const currentUser = Auth.getCurrentUser();
+    let group = null;
+
+    try {
+      const token = Auth.getToken();
+      const res = await fetch(`${apiBase}/api/groups/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
+          'x-guest-id': currentUser ? currentUser.id : 'guest_user'
+        },
+        body: JSON.stringify({ name, category, description })
+      });
+      const ct = res.headers.get('content-type') || '';
+      if (res.ok && ct.includes('json')) {
+        const data = await res.json();
+        if (data.success && data.group) {
+          group = data.group;
+        }
+      }
+    } catch (e) {}
+
+    if (!group) {
+      // Local fallback for GitHub Pages / offline mode
+      const rndCode = 'GRP-' + Math.floor(1000 + Math.random() * 9000);
+      group = {
+        id: 'grp_' + Date.now().toString(36),
+        code: rndCode,
+        name,
+        category,
+        description,
+        createdBy: currentUser ? currentUser.id : 'local_user',
+        createdAt: new Date().toISOString(),
+        membersCount: 1,
+        members: [{
+          userId: currentUser ? currentUser.id : 'me',
+          name: currentUser ? currentUser.name : 'أنا',
+          avatar: currentUser ? currentUser.avatar : 'غ',
+          userTag: currentUser ? currentUser.userTag : 'قارئ#1001',
+          xp: State.get()?.user?.xp || 0,
+          streak: State.get()?.garden?.streakDays || 1,
+          isOwner: true
+        }]
+      };
+      try {
+        const localGroups = JSON.parse(localStorage.getItem('ghiras_local_groups') || '[]');
+        localGroups.push(group);
+        localStorage.setItem('ghiras_local_groups', JSON.stringify(localGroups));
+      } catch(e) {}
+    }
+
+    State.addGroupToState(group);
+    closeModal();
+    setSuhbaTab('groups');
+    if (_currentScreen === 'suhba') {
+      navigate('suhba');
+    }
+    State.showToast(`🎉 تم إنشاء حلقة "${name}" بنجاح! رمزها: ${group.code}`);
+  } catch (err) {
+    State.showToast('⚠️ حدث خطأ في إنشاء المجموعة');
+  }
+}
+
+function openJoinGroupModal() {
+  openModal(`
+    <div style="direction:rtl;padding-bottom:var(--space-2)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:var(--space-3)">
+        <div style="width:2.8rem;height:2.8rem;border-radius:50%;background:rgba(184,142,79,0.15);color:var(--color-gold);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <span class="material-symbols-outlined" style="font-size:1.5rem">login</span>
+        </div>
+        <div>
+          <h3 style="font-size:var(--font-size-xl);font-weight:800;color:var(--text-primary);margin:0">الانضمام إلى حلقة تنافس</h3>
+          <p style="font-size:0.8rem;color:var(--text-secondary);margin:2px 0 0 0">أدخل رمز المجموعة للمنافسة مع الأعضاء في لوحة الصدارة</p>
+        </div>
+      </div>
+
+      <div style="margin-bottom:var(--space-4)">
+        <label style="display:block;font-size:0.8125rem;font-weight:700;color:var(--text-primary);margin-bottom:6px">رمز المجموعة (Group Code):</label>
+        <input type="text" id="grp-join-code-input" class="form-input" placeholder="مثال: GRP-7700" style="direction:ltr;text-align:center;font-family:monospace;font-size:1.15rem;font-weight:800;letter-spacing:1px" autofocus onkeydown="if(event.key==='Enter')App.submitJoinGroup()">
+        <p style="font-size:0.75rem;color:var(--text-muted);margin:6px 0 0 0">
+          💡 اسأل منشئ المجموعة عن رمزها الفريد المكوّن من 4 أرقام بعد GRP (أو جرّب GRP-7700)
+        </p>
+      </div>
+
+      <div style="display:flex;gap:var(--space-2)">
+        <button class="btn btn--primary" onclick="App.submitJoinGroup()" style="flex:1">
+          <span class="material-symbols-outlined">login</span>
+          <span>انضمام للمجموعة</span>
+        </button>
+        <button class="btn btn--secondary" onclick="App.closeModal()">
+          إلغاء
+        </button>
+      </div>
+    </div>
+  `);
+}
+
+async function submitJoinGroup(codeOverride) {
+  const codeEl = document.getElementById('grp-join-code-input');
+  const code = codeOverride || (codeEl ? codeEl.value.trim().toUpperCase() : '');
+
+  if (!code) {
+    State.showToast('⚠️ يرجى إدخال رمز المجموعة');
+    return;
+  }
+
+  try {
+    const apiBase = Auth.getApiBaseUrl();
+    const currentUser = Auth.getCurrentUser();
+    let group = null;
+
+    try {
+      const token = Auth.getToken();
+      const res = await fetch(`${apiBase}/api/groups/join`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
+          'x-guest-id': currentUser ? currentUser.id : 'guest_user'
+        },
+        body: JSON.stringify({ code })
+      });
+      const ct = res.headers.get('content-type') || '';
+      if (res.ok && ct.includes('json')) {
+        const data = await res.json();
+        if (data.success && data.group) {
+          group = data.group;
+        }
+      }
+    } catch (e) {}
+
+    if (!group) {
+      // Local fallback for GitHub Pages / offline mode
+      if (code === 'GRP-7700') {
+        group = {
+          id: 'grp_demo_7700',
+          code: 'GRP-7700',
+          name: 'حلقة حفاظ القرآن الكريم',
+          category: 'حلقة مسجد / تحفيظ',
+          description: 'حلقة يومية لتثبيت ومراجعة الحفظ والتنافس الإيماني المبارك',
+          membersCount: 4,
+          members: [
+            { userId: 'u1', name: 'أحمد الحافظ', avatar: 'أ', userTag: 'أحمد#2021', xp: 1250, streak: 45 },
+            { userId: 'u2', name: 'سارة المحسن', avatar: 'س', userTag: 'سارة#4412', xp: 980, streak: 32 },
+            { userId: 'u3', name: 'عمر الفاروق', avatar: 'ع', userTag: 'عمر#1042', xp: 850, streak: 21 },
+            { userId: currentUser ? currentUser.id : 'me', name: currentUser ? currentUser.name : 'أنا', avatar: currentUser ? currentUser.avatar : 'غ', userTag: currentUser ? currentUser.userTag : 'أنا#0001', xp: State.get()?.user?.xp || 0, streak: State.get()?.garden?.streakDays || 1 }
+          ]
+        };
+      } else {
+        try {
+          const localGroups = JSON.parse(localStorage.getItem('ghiras_local_groups') || '[]');
+          const found = localGroups.find(g => g.code === code);
+          if (found) {
+            group = found;
+          }
+        } catch(e) {}
+      }
+    }
+
+    if (!group) {
+      State.showToast(`⚠️ لم يتم العثور على مجموعة برمز "${code}". جرّب رمز المجموعة التجريبية: GRP-7700`);
+      return;
+    }
+
+    State.addGroupToState(group);
+    closeModal();
+    setSuhbaTab('groups');
+    if (_currentScreen === 'suhba') {
+      navigate('suhba');
+    }
+    State.showToast(`🌿 مرحباً بك في حلقة "${group.name}"!`);
+  } catch (err) {
+    State.showToast('⚠️ تعذر الانضمام للمجموعة حالياً');
+  }
+}
+
+async function quickJoinDemoGroup() {
+  await submitJoinGroup('GRP-7700');
+}
+
+function confirmLeaveGroup(groupId, groupName) {
+  openModal(`
+    <div style="text-align:center;padding:var(--space-3);direction:rtl">
+      <div style="font-size:3rem;margin-bottom:var(--space-2)">🚪</div>
+      <h3 style="font-size:var(--font-size-xl);font-weight:700;color:var(--text-primary);margin-bottom:var(--space-2)">
+        مغادرة حلقة «${groupName}»؟
+      </h3>
+      <p style="font-size:var(--font-size-sm);color:var(--text-secondary);margin-bottom:var(--space-4)">
+        هل أنت متأكد من رغبتك في مغادرة هذه الحلقة التنافسية؟ يمكنك الانضمام مجدداً في أي وقت برمز المجموعة.
+      </p>
+      <div style="display:flex;gap:var(--space-2)">
+        <button class="btn btn--primary" style="background:var(--color-error);flex:1" onclick="App.doLeaveGroup('${groupId}')">
+          نعم، غادر
+        </button>
+        <button class="btn btn--secondary" style="flex:1" onclick="App.closeModal()">
+          إلغاء
+        </button>
+      </div>
+    </div>
+  `);
+}
+
+async function doLeaveGroup(groupId) {
+  try {
+    const token = Auth.getToken();
+    const currentUser = Auth.getCurrentUser();
+    await fetch('/api/groups/leave', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : '',
+        'x-guest-id': currentUser ? currentUser.id : 'guest_user'
+      },
+      body: JSON.stringify({ groupId })
+    });
+
+    State.removeGroupFromState(groupId);
+    closeModal();
+    if (_currentScreen === 'suhba') {
+      navigate('suhba');
+    }
+    State.showToast('تمت مغادرة الحلقة التنافسية');
+  } catch (err) {
+    State.showToast('فشل إتمام العملية');
+  }
+}
+
+function openCompanionDetailModal(companionId) {
+  const s = State.get();
+  const c = s.suhba?.companions?.find(x => x.id === companionId);
+  if (!c) return;
+
+  const n = State.toArabicNum;
+  const page = c.currentPage || 1;
+  const percent = Math.min(100, Math.round((page / 604) * 100));
+
+  openModal(`
+    <div style="direction:rtl;text-align:center;padding:var(--space-2)">
+      <div style="width:4.5rem;height:4.5rem;border-radius:50%;background:${c.color || '#4A6B53'};color:white;display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:800;margin:0 auto var(--space-3);box-shadow:0 8px 20px rgba(0,0,0,0.12)">
+        ${c.avatar || c.name.charAt(0)}
+      </div>
+
+      <h3 style="font-size:1.3rem;font-weight:800;color:var(--text-primary);margin:0 0 4px">
+        ${c.name}
+      </h3>
+      <div style="display:flex;justify-content:center;gap:6px;margin-bottom:var(--space-4)">
+        <span class="chip" style="background:rgba(74,107,83,0.15);color:var(--color-sage);font-weight:700;font-size:0.75rem">
+          ${c.relation || 'رفيق درب'}
+        </span>
+        ${c.userTag ? `
+          <span style="font-family:monospace;font-size:0.75rem;background:rgba(44,34,25,0.06);padding:2px 8px;border-radius:6px;color:var(--text-secondary);font-weight:700;direction:ltr">
+            ${c.userTag}
+          </span>
+        ` : ''}
+      </div>
+
+      <!-- Quran Reading Progress Card -->
+      <div style="background:var(--color-bg-secondary);border:1px solid var(--color-border);border-radius:var(--radius-xl);padding:var(--space-3);margin-bottom:var(--space-4);text-align:right">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-weight:800;font-size:0.95rem;color:var(--text-primary);display:inline-flex;align-items:center;gap:6px">
+            <span class="material-symbols-outlined" style="color:var(--color-gold);font-size:1.15rem">menu_book</span>
+            <span>موقعه في المصحف:</span>
+          </span>
+          <span style="font-weight:800;color:var(--color-gold-dark);font-size:0.85rem">
+            صفحة ${n(page)} من ٦٠٤
+          </span>
+        </div>
+        <div style="font-size:0.8125rem;color:var(--text-secondary);margin-bottom:10px">
+          ${c.currentSurahName || 'سورة الفاتحة'} — ${c.currentJuzName || 'الجزء الأول'}
+        </div>
+        <div style="height:8px;background:rgba(44,34,25,0.08);border-radius:99px;overflow:hidden">
+          <div style="height:100%;width:${percent}%;background:linear-gradient(90deg, var(--color-gold), #4A6B53);border-radius:99px"></div>
+        </div>
+        <div style="font-size:0.75rem;color:var(--text-muted);text-align:left;margin-top:4px">
+          ${n(percent)}% تم إنجازها
+        </div>
+      </div>
+
+      <!-- Stats Grid -->
+      <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:10px;margin-bottom:var(--space-4)">
+        <div style="background:var(--color-bg-secondary);padding:12px;border-radius:var(--radius-lg);text-align:center">
+          <div style="font-size:1.3rem;font-weight:800;color:var(--color-gold)">⭐ ${n(c.xp || 0)}</div>
+          <div style="font-size:0.75rem;color:var(--text-muted)">إجمالي النقاط (XP)</div>
+        </div>
+        <div style="background:var(--color-bg-secondary);padding:12px;border-radius:var(--radius-lg);text-align:center">
+          <div style="font-size:1.3rem;font-weight:800;color:var(--color-sage)">🔥 ${n(c.streak || 0)} أيام</div>
+          <div style="font-size:0.75rem;color:var(--text-muted)">سلسلة الاستمرار</div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div style="display:flex;gap:var(--space-2)">
+        <button class="btn btn--primary" onclick="App.sendCheer('${c.name}')" style="flex:1">
+          <span>💌 إرسال دعاء وتحفيز</span>
+        </button>
+        <button class="btn btn--secondary" onclick="App.closeModal()" style="flex:1">
+          إغلاق
+        </button>
+      </div>
+    </div>
+  `);
+}
+
+function confirmDeleteCompanion(id, name) {
+  openModal(`
+    <div style="text-align:center;padding:var(--space-3);direction:rtl">
+      <div style="font-size:3rem;margin-bottom:var(--space-2)">🗑️</div>
+      <h3 style="font-size:var(--font-size-xl);font-weight:700;color:var(--text-primary);margin-bottom:var(--space-2)">
+        حذف الرفيق من صحبتك؟
+      </h3>
+      <p style="font-size:var(--font-size-sm);color:var(--text-secondary);margin-bottom:var(--space-4)">
+        هل أنت متأكد من رغبتك في إزالة <strong>${name}</strong> من قائمة رفقاء دربك؟
+      </p>
+      <div style="display:flex;gap:var(--space-2)">
+        <button class="btn btn--primary" style="background:var(--color-error);flex:1" onclick="App.doDeleteCompanion('${id}')">
+          نعم، احذف
+        </button>
+        <button class="btn btn--secondary" style="flex:1" onclick="App.closeModal()">
+          إلغاء
+        </button>
+      </div>
+    </div>
+  `);
+}
+
+function doDeleteCompanion(id) {
+  State.removeCompanion(id);
+  closeModal();
+  if (_currentScreen === 'suhba') {
+    navigate('suhba');
+  }
+  State.showToast('تم حذف الرفيق من قائمتك');
+}
+
+function sendCheer(name) {
+  const cheers = [
+    `💌 بارك الله في همتك يا ${name} وتقبّل طاعاتك!`,
+    `✨ ما شاء الله يا ${name}، استمر فـ «أحب الأعمال أدومها»!`,
+    `🌿 هنيئاً لك الورد القرآني يا ${name}، زادك الله نوراً وتوفيقاً!`,
+    `🤍 رفقة الخير تجمعنا على طاعة الله يا ${name}!`
+  ];
+  const msg = cheers[Math.floor(Math.random() * cheers.length)];
+  State.showToast(msg);
+}
+
+// ── Spiritual Nudges (همسات الود والدعاء بين الأصدقاء) ────────
+function openSendNudgeModal(companionUserTag, companionName) {
+  const targetTag = companionUserTag || '';
+  const targetName = companionName || 'رفيق دربك';
+
+  const defaultMessages = [
+    `أخوك ينتظرك في الورد القرآني.. لا تقطع غراسك اليوم يا ${targetName} 🌿`,
+    `﴿وَفِي ذَٰلِكَ فَلْيَتَنَافَسِ الْمُتَنَافِسُونَ﴾ — أسأل الله أن يبارك في وقتك ويشرح صدرك يا ${targetName} 🤍`,
+    `اللهم يسّر لأخي ${targetName} ورده، ونوّر قلبه بكتابك، واجعله من أهل القرآن وخاصته 🤲`,
+    `صفحة واحدة تصنع فارقاً عظيماً في بركة يومك يا ${targetName}.. بانتظار إنجازك اليوم ✨`,
+    `«أحب الأعمال إلى الله أدومها وإن قل» — همتك تشد همتي ونلتقي على طاعة الله 🌸`
+  ];
+
+  openModal(`
+    <div style="direction:rtl;text-align:right;padding:var(--space-2)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:var(--space-3)">
+        <div style="width:3rem;height:3rem;border-radius:50%;background:rgba(184,142,79,0.18);display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:var(--color-gold);flex-shrink:0">
+          🕊️
+        </div>
+        <div>
+          <h3 style="font-size:1.15rem;font-weight:800;color:var(--text-primary);margin:0">
+            همسة ود ودعاء لـ ${targetName}
+          </h3>
+          <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:2px">
+            اختر رسالة تذكير أو دعاء قرآني يشحذ همة رفيقك في الورد والطاعات
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Preset Messages -->
+      <div style="font-size:0.8rem;font-weight:700;color:var(--text-primary);margin-bottom:8px">
+        اختر من همسات الخير:
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:var(--space-4);max-height:200px;overflow-y:auto;padding-left:4px">
+        ${defaultMessages.map((msg, i) => `
+          <div onclick="document.getElementById('nudge-custom-msg').value='${msg.replace(/'/g, "\\'")}'"
+               style="background:var(--color-bg-secondary);border:1px solid rgba(184,142,79,0.25);border-radius:var(--radius-lg);padding:8px 12px;font-size:0.82rem;color:var(--text-primary);cursor:pointer;line-height:1.6;transition:all 0.15s ease"
+               onmouseover="this.style.borderColor='var(--color-gold)';this.style.background='rgba(184,142,79,0.08)'"
+               onmouseout="this.style.borderColor='rgba(184,142,79,0.25)';this.style.background='var(--color-bg-secondary)'">
+            ${msg}
+          </div>
+        `).join('')}
+      </div>
+
+      <!-- Custom Input -->
+      <div style="margin-bottom:var(--space-4)">
+        <label style="display:block;font-size:0.8rem;font-weight:700;color:var(--text-primary);margin-bottom:6px">
+          أو اكتب دعاءً خاصاً من قلبك:
+        </label>
+        <textarea id="nudge-custom-msg" rows="2" style="width:100%;border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:10px;font-size:0.85rem;font-family:inherit;background:var(--color-bg-card);color:var(--text-primary);box-sizing:border-box;resize:none" placeholder="اكتب دعاءً أو تذكيراً بالخير...">${defaultMessages[0]}</textarea>
+      </div>
+
+      <!-- Action Buttons -->
+      <div style="display:flex;gap:var(--space-2)">
+        <button class="btn btn--primary" style="flex:1;font-weight:700" onclick="App.submitSendNudge('${targetTag}', '${targetName}')">
+          <span>إرسال الهمسة والدعاء 🕊️</span>
+        </button>
+        <button class="btn btn--secondary" style="flex:1" onclick="App.closeModal()">
+          إلغاء
+        </button>
+      </div>
+    </div>
+  `);
+}
+
+async function submitSendNudge(toUserTag, toUserName) {
+  const textarea = document.getElementById('nudge-custom-msg');
+  const message = textarea ? textarea.value.trim() : '';
+  if (!message) {
+    State.showToast('يرجى كتابة أو اختيار رسالة دعاء');
+    return;
+  }
+
+  const currentUser = Auth.getCurrentUser();
+  const token = Auth.getToken();
+  const apiBase = Auth.getApiBaseUrl();
+
+  try {
+    const res = await fetch(`${apiBase}/api/nudges/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : '',
+        'x-guest-id': currentUser ? currentUser.id : 'guest_user'
+      },
+      body: JSON.stringify({
+        toUserTag: toUserTag,
+        toUserName: toUserName,
+        message: message
+      })
+    });
+
+    closeModal();
+    State.showToast(`🕊️ تم إرسال همسة الود والدعاء لـ ${toUserName} بنجاح!`);
+  } catch(e) {
+    closeModal();
+    State.showToast(`🕊️ تم إرسال همسة الود والدعاء لـ ${toUserName} بنجاح!`);
+  }
+}
+
+async function loadIncomingNudges() {
+  const currentUser = Auth.getCurrentUser();
+  const token = Auth.getToken();
+  const myTag = State.getUserTag() || currentUser?.userTag || '';
+  const apiBase = Auth.getApiBaseUrl();
+
+  try {
+    const res = await fetch(`${apiBase}/api/nudges/my?userTag=${encodeURIComponent(myTag)}`, {
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+        'x-guest-id': currentUser ? currentUser.id : 'guest_user'
+      }
+    });
+    const ct = res.headers.get('content-type') || '';
+    if (res.ok && ct.includes('json')) {
+      const data = await res.json();
+      if (data.success && Array.isArray(data.nudges)) {
+        State.set(s => {
+          if (!s.suhba) s.suhba = { companions: [], groups: [] };
+          s.suhba.incomingNudges = data.nudges;
+        });
+      }
+    }
+  } catch(e) {}
+}
+
+async function replyThanksNudge(toUserTag, toUserName) {
+  const currentUser = Auth.getCurrentUser();
+  const token = Auth.getToken();
+  const apiBase = Auth.getApiBaseUrl();
+  try {
+    await fetch(`${apiBase}/api/nudges/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : '',
+        'x-guest-id': currentUser ? currentUser.id : 'guest_user'
+      },
+      body: JSON.stringify({
+        toUserTag: toUserTag,
+        toUserName: toUserName,
+        message: 'جزاك الله خيراً يا أخي وبارك فيك، تقبل الله منا ومنك 🤲🤍'
+      })
+    });
+    State.showToast(`تم إرسال الشكر والدعاء لـ ${toUserName} 🤲`);
+  } catch(e) {
+    State.showToast(`تم إرسال الشكر والدعاء لـ ${toUserName} 🤲`);
+  }
+}
+
+async function clearAllNudges() {
+  const currentUser = Auth.getCurrentUser();
+  const token = Auth.getToken();
+  const myTag = State.getUserTag() || currentUser?.userTag || '';
+  const apiBase = Auth.getApiBaseUrl();
+
+  try {
+    await fetch(`${apiBase}/api/nudges/mark-read`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : '',
+        'x-guest-id': currentUser ? currentUser.id : 'guest_user'
+      },
+      body: JSON.stringify({ nudgeId: 'all', userTag: myTag })
+    });
+  } catch(e) {}
+
+  State.set(s => {
+    if (s.suhba) s.suhba.incomingNudges = [];
+  });
+  State.showToast('تم تحديد جميع الهمسات كمقروءة');
+  if (_currentScreen === 'suhba') navigate('suhba');
+}
+
+// ── Cloud Sync Settings Modal ──────────────────────────────
+function openCloudSettings() {
+  const currentUrl = localStorage.getItem('ghiras_custom_api_url') || window.GHIRAS_API_URL || 'https://ghiras-backend-wq79.onrender.com';
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+  openModal(`
+    <div style="direction:rtl;text-align:right;padding-bottom:var(--space-2)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:var(--space-3)">
+        <div style="width:3rem;height:3rem;border-radius:50%;background:rgba(74,107,83,0.15);display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:var(--color-primary);flex-shrink:0">
+          ☁️
+        </div>
+        <div>
+          <h3 style="font-size:1.15rem;font-weight:800;color:var(--text-primary);margin:0">السحابة المركزية المشتركة</h3>
+          <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:2px">ربط جميع الأجهزة والمستخدمين بقاعدة بيانات وخادم موحد</div>
+        </div>
+      </div>
+
+      <div style="background:var(--color-bg-secondary);border:1px solid rgba(184,142,79,0.25);border-radius:14px;padding:12px;margin-bottom:var(--space-3);font-size:0.82rem;line-height:1.7">
+        <div><strong>حالة الاتصال:</strong> ${isLocalhost ? '💻 خادم محلي تجريبي (Localhost:5500)' : '🌐 السحابة الموحدة (Render Cloud)'}</div>
+        <div style="margin-top:4px;color:var(--text-secondary)">
+          عنوان السيرفر: <code style="direction:ltr;display:inline-block;font-size:0.75rem;background:rgba(0,0,0,0.06);padding:2px 6px;border-radius:6px">${currentUrl}</code>
+        </div>
+      </div>
+
+      <div style="margin-bottom:var(--space-3)">
+        <label style="display:block;font-size:0.8rem;font-weight:700;color:var(--text-primary);margin-bottom:6px">عنوان السيرفر السحابي (URL):</label>
+        <input type="url" id="cloud-api-url-input" class="form-input" value="${currentUrl}" placeholder="https://ghiras-backend-wq79.onrender.com" style="direction:ltr;font-family:monospace;font-size:0.85rem">
+        <p style="font-size:0.75rem;color:var(--text-muted);margin:6px 0 0 0">
+          إذا نشرت السيرفر برابط خاص على Render، الصقه هنا واضغط حفظ.
+        </p>
+      </div>
+
+      <div id="cloud-status-check" style="margin-bottom:var(--space-3);display:none"></div>
+
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;gap:var(--space-2)">
+          <button class="btn btn--primary" style="flex:1" onclick="App.saveCloudApiUrl()">
+            <span class="material-symbols-outlined">save</span>
+            <span>حفظ وفحص الاتصال</span>
+          </button>
+          <button class="btn btn--secondary" onclick="App.testCloudConnection()">
+            <span class="material-symbols-outlined">wifi_tethering</span>
+            <span>فحص</span>
+          </button>
+        </div>
+
+        <a href="https://render.com/deploy?repo=https://github.com/sulaiman-070/ghiras" target="_blank" class="btn" style="background:#4A6B53;color:#FFFFFF;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:700;padding:10px;border-radius:12px;margin-top:4px">
+          <span>🚀 نشر الخادم على Render بضغطة واحدة</span>
+          <span class="material-symbols-outlined" style="font-size:1.1rem">open_in_new</span>
+        </a>
+      </div>
+    </div>
+  `);
+}
+
+async function saveCloudApiUrl() {
+  const input = document.getElementById('cloud-api-url-input');
+  let url = input ? input.value.trim().replace(/\/+$/, '') : '';
+  if (url) {
+    localStorage.setItem('ghiras_custom_api_url', url);
+    window.GHIRAS_API_URL = url;
+    State.showToast('✅ تم حفظ رابط السيرفر السحابي');
+    await testCloudConnection();
+  }
+}
+
+async function testCloudConnection() {
+  const box = document.getElementById('cloud-status-check');
+  if (!box) return;
+  box.style.display = 'block';
+  box.innerHTML = `<div style="color:var(--text-secondary);font-size:0.8rem">⏳ جاري فحص الاتصال بالسيرفر السحابي...</div>`;
+
+  const base = Auth.getApiBaseUrl();
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch(`${base}/api/health`, { signal: controller.signal });
+    clearTimeout(timer);
+    const data = await res.json();
+    if (data.status === 'ok') {
+      box.innerHTML = `
+        <div style="background:#E8F0E9;color:#2D5A3D;padding:10px;border-radius:10px;font-size:0.82rem;font-weight:700">
+          ✅ السيرفر السحابي متصل بنجاح! جاهز لمزامنة الحسابات والمجموعات مع جميع المستخدمين.
+        </div>
+      `;
+    } else {
+      box.innerHTML = `
+        <div style="background:#FFF3CD;color:#856404;padding:10px;border-radius:10px;font-size:0.82rem">
+          ⚠️ استجاب السيرفر ولكن بحالة غير متوقعة.
+        </div>
+      `;
+    }
+  } catch (e) {
+    box.innerHTML = `
+      <div style="background:#FDF3E7;color:#B88E4F;padding:10px;border-radius:10px;font-size:0.82rem;line-height:1.6">
+        ⏳ السيرفر السحابي يستيقظ (Spinning Up) أو لم يتم نشره بعد.<br>
+        <span style="font-size:0.75rem;color:var(--text-secondary)">اضغط زر "نشر الخادم على Render" أعلاه لتفعيله مجاناً. التطبيق يعمل تلقائياً بالوضع المحلي الآمن حتى اكتمال النشر.</span>
+      </div>
+    `;
+  }
+}
+
 // ── Modal ──────────────────────────────────────────────────
 function openModal(html) {
   const overlay = document.getElementById('modal-overlay');
@@ -2207,10 +3563,63 @@ window.App = {
   // Garden
   waterGarden,
   shareGarden,
-  // Social
-  encourageMember,
+  recoverGardenStreak: (method = 'token') => {
+    State.recoverGardenStreak(method);
+    if (_currentScreen === 'garden') {
+      const container = document.getElementById('screen-container');
+      if (container) container.innerHTML = renderGarden();
+    }
+  },
+  compensateMissedWird: () => {
+    State.compensateMissedWird();
+    if (_currentScreen === 'garden') {
+      const container = document.getElementById('screen-container');
+      if (container) container.innerHTML = renderGarden();
+    }
+  },
+  simulateMissedDay: () => {
+    State.simulateMissedDay();
+    if (_currentScreen === 'garden') {
+      const container = document.getElementById('screen-container');
+      if (container) container.innerHTML = renderGarden();
+    }
+  },
+  setStreakStyle: (style) => {
+    localStorage.setItem('ghiras_streak_style', style);
+    if (_currentScreen === 'home') {
+      const container = document.getElementById('screen-container');
+      if (container) container.innerHTML = renderHome();
+    }
+  },
+  // Social, Companions & Groups
+  copyMyUserTag,
+  copyGroupCode,
+  switchSuhbaTab,
+  openAddCompanionByIdModal,
+  searchCompanionByTag,
+  submitAddFoundCompanion,
+  addDemoCompanionQuick,
+  openCreateGroupModal,
+  submitCreateGroup,
+  openJoinGroupModal,
+  submitJoinGroup,
+  quickJoinDemoGroup,
+  confirmLeaveGroup,
+  doLeaveGroup,
+  openCompanionDetailModal,
+  openAddCompanionModal: openAddCompanionByIdModal,
+  submitAddCompanion: submitAddFoundCompanion,
+  confirmDeleteCompanion,
+  doDeleteCompanion,
+  sendCheer,
+  openSendNudgeModal,
+  submitSendNudge,
+  loadIncomingNudges,
+  replyThanksNudge,
+  clearAllNudges,
   inviteFriend,
-  createGroup,
+  encourageMember: (groupId, memberId) => openSendNudgeModal('', 'رفيقك'),
+  createGroup: openCreateGroupModal,
   openGroup,
   // Settings & Reminders
   updateSetting,
@@ -2242,9 +3651,27 @@ window.App = {
   revealMaskedWord,
   revealAllMaskedWords,
   openKhatmaCertificate,
+  // Khatma Plan
+  enableKhatma,
+  selectKhatmaDuration,
+  toggleKhatmaPrayer,
+  goToKhatmaReading,
   // Modal
   openModal,
   closeModal,
+  // Auth & Multi-User
+  switchAuthMode,
+  togglePasswordVisibility: toggleAuthPassword,
+  dismissAuthError,
+  handleAuthSubmit,
+  continueAsGuest,
+  openSwitchAccount,
+  confirmLogout,
+  doLogout,
+  // Cloud Sync
+  openCloudSettings,
+  saveCloudApiUrl,
+  testCloudConnection,
 };
 
 // ── Start ──────────────────────────────────────────────────
