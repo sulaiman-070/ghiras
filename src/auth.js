@@ -28,6 +28,27 @@ function generateLocalTag(name) {
   return `${clean}#${num}`;
 }
 
+async function hashPasswordLocal(password) {
+  // Use SubtleCrypto SHA-256 for basic local password hashing
+  try {
+    const encoder = new TextEncoder();
+    const data = encoder.encode('ghiras_salt_' + password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (e) {
+    // Fallback for environments without SubtleCrypto: simple obfuscation
+    let hash = 0;
+    const str = 'ghiras_salt_' + password;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return 'fallback_' + Math.abs(hash).toString(36);
+  }
+}
+
 export function getApiBaseUrl() {
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   if (isLocalhost) return '';
@@ -128,6 +149,8 @@ export const Auth = {
       throw new Error('البريد الإلكتروني مسجل مسبقاً، يرجى تسجيل الدخول');
     }
 
+    const hashedPw = await hashPasswordLocal(password);
+
     const newUser = {
       id: 'usr_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 4),
       name: cleanName,
@@ -139,7 +162,7 @@ export const Auth = {
       createdAt: new Date().toISOString()
     };
 
-    localUsers.push({ ...newUser, passwordHash: password });
+    localUsers.push({ ...newUser, passwordHash: hashedPw });
     saveLocalUsers(localUsers);
 
     const token = 'ghiras_local_' + newUser.id;
@@ -173,24 +196,19 @@ export const Auth = {
     let userRecord = localUsers.find(u => u.email === cleanEmail);
 
     if (!userRecord) {
-      // Create account automatically on first login in static mode
-      const fallbackName = cleanEmail.split('@')[0] || 'قارئ القرآن';
-      userRecord = {
-        id: 'usr_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 4),
-        name: fallbackName,
-        email: cleanEmail,
-        avatar: fallbackName.charAt(0) || 'غ',
-        userTag: generateLocalTag(fallbackName),
-        isGuest: false,
-        isLocal: true,
-        createdAt: new Date().toISOString(),
-        passwordHash: password
-      };
-      localUsers.push(userRecord);
-      saveLocalUsers(localUsers);
-    } else {
-      if (userRecord.passwordHash && userRecord.passwordHash !== password) {
+      throw new Error('لا يوجد حساب بهذا البريد الإلكتروني، يرجى إنشاء حساب جديد');
+    }
+
+    if (userRecord.passwordHash) {
+      const hashedInput = await hashPasswordLocal(password);
+      // Support both old plaintext and new hashed passwords
+      if (userRecord.passwordHash !== hashedInput && userRecord.passwordHash !== password) {
         throw new Error('كلمة المرور غير صحيحة');
+      }
+      // Migrate old plaintext to hashed if needed
+      if (userRecord.passwordHash === password && userRecord.passwordHash !== hashedInput) {
+        userRecord.passwordHash = hashedInput;
+        saveLocalUsers(localUsers);
       }
     }
 

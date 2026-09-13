@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="ghirasBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FAF7F2"/>
+      <stop offset="100%" stop-color="#EAF0EA"/>
+    </linearGradient>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5C8367"/>
+      <stop offset="100%" stop-color="#34543C"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#B88E4F"/>
+    </linearGradient>
+  </defs>
+  <!-- Background Circle -->
+  <rect width="128" height="128" rx="32" fill="url(#ghirasBg)"/>
+  <circle cx="64" cy="64" r="54" fill="none" stroke="url(#goldGrad)" stroke-width="2" stroke-dasharray="4 3" opacity="0.6"/>
+  <!-- Stem -->
+  <path d="M64 96 C64 78 62 60 64 42" stroke="#34543C" stroke-width="4.5" stroke-linecap="round"/>
+  <!-- Left Leaf -->
+  <path d="M64 68 C44 64 36 46 42 36 C52 38 62 50 64 68 Z" fill="url(#leafGrad)"/>
+  <!-- Right Leaf -->
+  <path d="M64 54 C80 50 88 34 84 26 C74 28 66 38 64 54 Z" fill="url(#goldGrad)"/>
+  <!-- Dew Drop -->
+  <circle cx="48" cy="44" r="2.5" fill="#FAF7F2" opacity="0.9"/>
+</svg>

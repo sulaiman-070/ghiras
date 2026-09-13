@@ -331,47 +331,51 @@ function checkDailyReset() {
 
 // ── Actions ──────────────────────────────────────────────────
 
+function _applyHabitCompletion(s, habitId, type = 'min') {
+  const habit = s.habits.find(h => h.id === habitId);
+  if (!habit || !habit.active) return;
+
+  const today = getTodayKey();
+  const wasMinDone = habit.minGoalDone;
+
+  if (type === 'min' && !habit.minGoalDone) {
+    habit.minGoalDone = true;
+    habit.todayStatus = 'min_done';
+    habit.history[today] = 'min_done';
+    habit.totalCompletions++;
+    // Update streak
+    updateHabitStreak(habit, today);
+    // Award XP
+    awardXP(s, 25, '✅ أحسنت!');
+    // Update garden
+    updateGarden(s);
+  }
+
+  if (type === 'extra') {
+    habit.minGoalDone = true;
+    habit.extraGoalDone = true;
+    habit.todayStatus = 'extra_done';
+    habit.history[today] = 'extra_done';
+    if (!wasMinDone) {
+      habit.totalCompletions++;
+      updateHabitStreak(habit, today);
+      awardXP(s, 50, '⭐ رائع!');
+    } else {
+      awardXP(s, 25, '🌟 ممتاز!');
+    }
+    updateGarden(s);
+  }
+
+  // Check achievements
+  checkAchievements(s);
+}
+
 /**
  * Complete a habit (min or extra goal)
  */
 function completeHabit(habitId, type = 'min') {
   set(s => {
-    const habit = s.habits.find(h => h.id === habitId);
-    if (!habit || !habit.active) return;
-
-    const today = getTodayKey();
-    const wasMinDone = habit.minGoalDone;
-
-    if (type === 'min' && !habit.minGoalDone) {
-      habit.minGoalDone = true;
-      habit.todayStatus = 'min_done';
-      habit.history[today] = 'min_done';
-      habit.totalCompletions++;
-      // Update streak
-      updateHabitStreak(habit, today);
-      // Award XP
-      awardXP(s, 25, '✅ أحسنت!');
-      // Update garden
-      updateGarden(s);
-    }
-
-    if (type === 'extra') {
-      habit.minGoalDone = true;
-      habit.extraGoalDone = true;
-      habit.todayStatus = 'extra_done';
-      habit.history[today] = 'extra_done';
-      if (!wasMinDone) {
-        habit.totalCompletions++;
-        updateHabitStreak(habit, today);
-        awardXP(s, 50, '⭐ رائع!');
-      } else {
-        awardXP(s, 25, '🌟 ممتاز!');
-      }
-      updateGarden(s);
-    }
-
-    // Check achievements
-    checkAchievements(s);
+    _applyHabitCompletion(s, habitId, type);
   });
 }
 
@@ -514,11 +518,10 @@ function updateQuranProgress(ayahsRead, surahId, ayahNum, pageNum) {
     // Mark wird as done if min goal met (1 ayah)
     if (s.quranProgress.todayAyahsRead >= 1 && s.quranProgress.todayStatus === 'pending') {
       s.quranProgress.todayStatus = 'min_done';
-      // Also complete the habit
+      // Also complete the habit safely without triggering nested set()
       const habit = s.habits.find(h => h.id === 'quran-reading');
       if (habit && !habit.minGoalDone) {
-        completeHabit('quran-reading', 'min');
-        return; // completeHabit calls set() internally
+        _applyHabitCompletion(s, 'quran-reading', 'min');
       }
     }
   });
@@ -613,9 +616,28 @@ function getTodayGreeting() {
 }
 
 function getHijriDate() {
-  // Simple Hijri approximation — good enough for display
-  const today = new Date();
-  return `${AR_DAYS[today.getDay()]}، ${toArabicNum(today.getDate())} ${AR_MONTHS[today.getMonth()]} ${toArabicNum(today.getFullYear())}`;
+  try {
+    const formatter = new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+    return formatter.format(new Date());
+  } catch (e) {
+    try {
+      const fallbackFormatter = new Intl.DateTimeFormat('ar-SA-u-ca-islamic', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+      return fallbackFormatter.format(new Date());
+    } catch (err) {
+      const today = new Date();
+      return `${AR_DAYS[today.getDay()]}، ${toArabicNum(today.getDate())} ${AR_MONTHS[today.getMonth()]} ${toArabicNum(today.getFullYear())}`;
+    }
+  }
 }
 
 function getActiveHabits() {

@@ -46,8 +46,27 @@ const SURAH_NAMES_AR = [
   "النصر", "المسد", "الإخلاص", "الفلق", "الناس"
 ];
 
+const JUZ_PAGE_STARTS = [
+  1, 22, 42, 62, 82, 102, 122, 142, 162, 182,
+  202, 222, 242, 262, 282, 302, 322, 342, 362, 382,
+  402, 422, 442, 462, 482, 502, 522, 542, 562, 582
+];
+
+function getJuzNumber(pageNumber) {
+  const pageNum = Math.max(1, Math.min(604, parseInt(pageNumber, 10) || 1));
+  let juz = 1;
+  for (let i = 0; i < JUZ_PAGE_STARTS.length; i++) {
+    if (JUZ_PAGE_STARTS[i] <= pageNum) {
+      juz = i + 1;
+    } else {
+      break;
+    }
+  }
+  return Math.min(30, juz);
+}
+
 function getJuzName(pageNumber) {
-  const juz = Math.min(30, Math.max(1, Math.ceil(pageNumber / 20)));
+  const juz = getJuzNumber(pageNumber);
   const names = [
     '', 'الجزء الأول', 'الجزء الثاني', 'الجزء الثالث', 'الجزء الرابع', 'الجزء الخامس',
     'الجزء السادس', 'الجزء السابع', 'الجزء الثامن', 'الجزء التاسع', 'الجزء العاشر',
@@ -129,9 +148,24 @@ function saveNudges(nudges) {
   fs.writeFileSync(NUDGES_FILE, JSON.stringify(nudges, null, 2), 'utf8');
 }
 
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days session expiry
+
 function loadSessions() {
   try {
-    return JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf8'));
+    const data = JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf8'));
+    // Clean expired sessions on load
+    const now = Date.now();
+    let dirty = false;
+    for (const [token, s] of Object.entries(data)) {
+      if (s && s.createdAt && (now - new Date(s.createdAt).getTime() > SESSION_TTL_MS)) {
+        delete data[token];
+        dirty = true;
+      }
+    }
+    if (dirty) {
+      saveSessions(data);
+    }
+    return data;
   } catch (e) {
     return {};
   }
@@ -239,6 +273,13 @@ function getSessionUser(req) {
   const sessions = loadSessions();
   const session = sessions[token];
   if (!session) return null;
+
+  // Enforce session expiration
+  if (session.createdAt && (Date.now() - new Date(session.createdAt).getTime() > SESSION_TTL_MS)) {
+    delete sessions[token];
+    saveSessions(sessions);
+    return null;
+  }
   
   const users = loadUsers();
   const user = users.find(u => u.id === session.userId);
@@ -306,15 +347,16 @@ function createInitialUserState(name) {
     },
     habits: [
       {
-        id: 'quran-wird',
-        name: 'الورد اليومي',
+        id: 'quran-reading',
+        name: 'قراءة القرآن',
         category: 'quran',
         icon: 'menu_book',
-        iconBg: '#E8F0E9',
-        iconColor: '#2D5A3D',
-        description: 'قراءة صفحة واحدة من المصحف على الأقل بتأنٍ وخشوع',
+        iconBg: '#EAF0EA',
+        iconColor: '#4A6B53',
+        description: 'اقرأ من كتاب الله كل يوم',
         minGoal: { value: 1, unit: 'page', label: 'صفحة واحدة', arabicNum: '١' },
-        extraGoal: { value: 4, unit: 'pages', label: '٤ صفحات (نصف حزب)', arabicNum: '٤' },
+        extraGoal: { value: 5, unit: 'pages', label: '٥ صفحات', arabicNum: '٥' },
+        frequency: 'daily',
         active: true,
         currentStreak: 0,
         longestStreak: 0,
@@ -325,15 +367,16 @@ function createInitialUserState(name) {
         extraGoalDone: false
       },
       {
-        id: 'morning-evening-athkar',
-        name: 'أذكار الصباح والمساء',
+        id: 'morning-athkar',
+        name: 'أذكار الصباح',
         category: 'athkar',
-        icon: 'wb_twilight',
-        iconBg: '#FDF3E7',
+        icon: 'wb_sunny',
+        iconBg: '#F2E4CB',
         iconColor: '#B88E4F',
-        description: 'حصن المسلم اليومي لطمأنينة القلب والسكينة',
-        minGoal: { value: 3, unit: 'athkar', label: '٣ أذكار رئيسية', arabicNum: '٣' },
-        extraGoal: { value: 10, unit: 'athkar', label: 'الأذكار كاملة', arabicNum: '١٠' },
+        description: 'أذكار الصباح المأثورة',
+        minGoal: { value: 1, unit: 'set', label: 'مجموعة واحدة', arabicNum: '١' },
+        extraGoal: { value: 3, unit: 'sets', label: 'المجموعة الكاملة', arabicNum: '٣' },
+        frequency: 'daily',
         active: true,
         currentStreak: 0,
         longestStreak: 0,
@@ -353,7 +396,28 @@ function createInitialUserState(name) {
         description: 'تأمل معنى آية كريمة وقراءة تفسيرها الميسر',
         minGoal: { value: 1, unit: 'ayah', label: 'آية واحدة', arabicNum: '١' },
         extraGoal: { value: 3, unit: 'ayahs', label: '٣ آيات بخواطرها', arabicNum: '٣' },
+        frequency: 'daily',
         active: true,
+        currentStreak: 0,
+        longestStreak: 0,
+        totalCompletions: 0,
+        todayStatus: 'pending',
+        history: {},
+        minGoalDone: false,
+        extraGoalDone: false
+      },
+      {
+        id: 'evening-athkar',
+        name: 'أذكار المساء',
+        category: 'athkar',
+        icon: 'nights_stay',
+        iconBg: '#F6EFE9',
+        iconColor: '#6E6053',
+        description: 'أذكار المساء المأثورة',
+        minGoal: { value: 1, unit: 'set', label: 'مجموعة واحدة', arabicNum: '١' },
+        extraGoal: { value: 3, unit: 'sets', label: 'المجموعة الكاملة', arabicNum: '٣' },
+        frequency: 'daily',
+        active: false,
         currentStreak: 0,
         longestStreak: 0,
         totalCompletions: 0,
@@ -447,8 +511,8 @@ async function handleApiRequest(req, res, parsedUrl) {
       if (!email || !email.includes('@')) {
         return sendJson(res, 400, { error: 'يرجى إدخال بريد إلكتروني صحيح' });
       }
-      if (!password || password.length < 4) {
-        return sendJson(res, 400, { error: 'كلمة المرور يجب أن لا تقل عن ٤ خانات' });
+      if (!password || password.length < 6) {
+        return sendJson(res, 400, { error: 'كلمة المرور يجب أن تكون ٦ خانات على الأقل' });
       }
       if (!name) {
         return sendJson(res, 400, { error: 'يرجى كتابة اسمك الكريم' });
@@ -976,11 +1040,27 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
 
-  const parsedUrl = url.parse(req.url, true);
+  const host = req.headers.host || `localhost:${PORT}`;
+  const parsedUrl = new URL(req.url, `http://${host}`);
+  parsedUrl.query = Object.fromEntries(parsedUrl.searchParams.entries());
 
   // Check if API route
   if (parsedUrl.pathname.startsWith('/api/')) {
     return handleApiRequest(req, res, parsedUrl);
+  }
+
+  // Favicon fallback handling
+  if (parsedUrl.pathname === '/favicon.ico') {
+    const iconPath = path.join(ROOT, 'favicon.ico');
+    if (!fs.existsSync(iconPath)) {
+      const svgPath = path.join(ROOT, 'favicon.svg');
+      if (fs.existsSync(svgPath)) {
+        res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' });
+        return fs.createReadStream(svgPath).pipe(res);
+      }
+      res.writeHead(204);
+      return res.end();
+    }
   }
 
   // Static files handling
@@ -988,7 +1068,7 @@ const server = http.createServer(async (req, res) => {
 
   // Security: prevent directory traversal
   if (!filePath.startsWith(ROOT)) {
-    res.writeHead(403);
+    res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
     return res.end('Forbidden');
   }
 
@@ -998,10 +1078,10 @@ const server = http.createServer(async (req, res) => {
   fs.readFile(filePath, (err, data) => {
     if (err) {
       if (err.code === 'ENOENT') {
-        res.writeHead(404);
-        res.end(`File not found: ${parsedUrl.pathname}`);
+        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Not Found');
       } else {
-        res.writeHead(500);
+        res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
         res.end('Server Error');
       }
       return;
