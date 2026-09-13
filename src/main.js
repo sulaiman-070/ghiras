@@ -3,8 +3,8 @@
  * Orchestrates routing, rendering, and all user interactions
  */
 
-import { State } from './state.js?v=3.6';
-import { Auth }  from './auth.js?v=3.6';
+import { State } from './state.js?v=4.0';
+import { Auth }  from './auth.js?v=4.0';
 import {
   renderAuthScreen,
   setAuthMode,
@@ -12,8 +12,8 @@ import {
   setAuthError,
   setAuthLoading,
   togglePasswordVisibility
-} from './screens/auth_screen.js?v=3.6';
-import { renderHome }       from './screens/home.js?v=3.6';
+} from './screens/auth_screen.js?v=4.0';
+import { renderHome }       from './screens/home.js?v=4.0';
 import {
   renderWird,
   setWirdTab,
@@ -23,13 +23,13 @@ import {
   setPrayerSub,
   setAthkarSearch,
   renderAthkarTabContent
-} from './screens/wird.js?v=3.6';
-import { ATHKAR_DUAS, ATHKAR_CATEGORIES } from './data/athkar_duas.js?v=3.6';
-import { renderGarden }     from './screens/garden.js?v=3.6';
-import { renderSuhba, setSuhbaTab, getSuhbaTab } from './screens/suhba.js?v=3.6';
-import { renderProfile }    from './screens/profile.js?v=3.6';
-import { renderOnboarding, onboardingStepData } from './screens/onboarding.js?v=3.6';
-import { SOUL_REMEDIES, getSoulRemedy } from './data/remedies.js?v=3.6';
+} from './screens/wird.js?v=4.0';
+import { ATHKAR_DUAS, ATHKAR_CATEGORIES } from './data/athkar_duas.js?v=4.0';
+import { renderGarden }     from './screens/garden.js?v=4.0';
+import { renderSuhba, setSuhbaTab, getSuhbaTab } from './screens/suhba.js?v=4.0';
+import { renderProfile }    from './screens/profile.js?v=4.0';
+import { renderOnboarding, onboardingStepData } from './screens/onboarding.js?v=4.0';
+import { SOUL_REMEDIES, getSoulRemedy } from './data/remedies.js?v=4.0';
 import {
   getSurahById,
   getSurah,
@@ -135,35 +135,35 @@ function initMushafGestureHandlers() {
 
   document.addEventListener('touchstart', (e) => {
     if (_currentScreen !== 'wird') return;
-    const mushafEl = document.getElementById('mushaf-page') || document.getElementById('wird-content');
-    if (!mushafEl || !mushafEl.contains(e.target)) return;
+    const wirdEl = document.getElementById('wird-content') || document.getElementById('mushaf-page');
+    if (!wirdEl || !wirdEl.contains(e.target)) return;
 
     // Ignore touches on buttons, inputs, chips, or modal triggers
     if (e.target.closest('button, input, select, .chip, #ayah-action-sheet, .modal')) return;
 
-    touchStartX = e.changedTouches[0].screenX;
-    touchStartY = e.changedTouches[0].screenY;
+    touchStartX = e.changedTouches[0].clientX;
+    touchStartY = e.changedTouches[0].clientY;
     touchStartTime = Date.now();
   }, { passive: true });
 
   document.addEventListener('touchend', (e) => {
     if (_currentScreen !== 'wird') return;
-    const mushafEl = document.getElementById('mushaf-page') || document.getElementById('wird-content');
-    if (!mushafEl || !mushafEl.contains(e.target)) return;
+    const wirdEl = document.getElementById('wird-content') || document.getElementById('mushaf-page');
+    if (!wirdEl || !wirdEl.contains(e.target)) return;
 
     if (e.target.closest('button, input, select, .chip, #ayah-action-sheet, .modal')) return;
 
-    const touchEndX = e.changedTouches[0].screenX;
-    const touchEndY = e.changedTouches[0].screenY;
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
     const duration = Date.now() - touchStartTime;
 
     const deltaX = touchEndX - touchStartX;
     const deltaY = touchEndY - touchStartY;
 
-    // Must be a distinct horizontal swipe within 700ms
-    if (duration < 700 && Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.3) {
+    // Must be a distinct horizontal swipe within 800ms
+    if (duration < 800 && Math.abs(deltaX) > 30 && Math.abs(deltaX) > Math.abs(deltaY) * 1.0) {
       const s = State.get();
-      const curPage = s.quranProgress.currentPage || 1;
+      const curPage = s.quranProgress?.currentPage || 1;
 
       if (deltaX > 0) {
         // سحب من اليسار لليمين -> الانتقال للصفحة اليسرى (التالية)
@@ -526,7 +526,7 @@ function navigate(screenId, params = null) {
 
   // Scroll position: for Mushaf screen, align specifically to Mushaf frame; for other screens reset to top
   if (screenId === 'wird') {
-    requestAnimationFrame(() => scrollToMushafTop(false));
+    alignMushafScrollPosition();
   } else {
     container.scrollTop = 0;
     window.scrollTo(0, 0);
@@ -718,34 +718,42 @@ function switchWirdTab(tab) {
 function scrollToMushafTop(smooth = true) {
   const mushafPage = document.getElementById('mushaf-page');
   if (mushafPage) {
-    const rect = mushafPage.getBoundingClientRect();
-    const scrollTop = window.pageYOffset || document.documentElement.scrollTop || 0;
-    // Exactly at the top border of the Mushaf gilded frame with a small 8px margin
-    const targetY = scrollTop + rect.top - 8;
-    const finalY = Math.max(0, targetY);
-
-    window.scrollTo({
-      top: finalY,
-      behavior: smooth ? 'smooth' : 'auto'
-    });
-
-    const container = document.getElementById('screen-container');
-    if (container && container.scrollHeight > container.clientHeight) {
-      container.scrollTo({
-        top: Math.max(0, container.scrollTop + rect.top - 8),
-        behavior: smooth ? 'smooth' : 'auto'
+    try {
+      mushafPage.scrollIntoView({
+        behavior: smooth ? 'smooth' : 'auto',
+        block: 'start'
       });
-    }
-    const wirdContent = document.getElementById('wird-content');
-    if (wirdContent && wirdContent.scrollHeight > wirdContent.clientHeight) {
-      wirdContent.scrollTo({
-        top: Math.max(0, wirdContent.scrollTop + rect.top - 8),
-        behavior: smooth ? 'smooth' : 'auto'
-      });
+    } catch (e) {
+      const rect = mushafPage.getBoundingClientRect();
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop || 0;
+      window.scrollTo(0, Math.max(0, scrollTop + rect.top - 10));
     }
   } else {
     window.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
   }
+}
+
+function alignMushafScrollPosition() {
+  const mushafPage = document.getElementById('mushaf-page');
+  if (!mushafPage) return;
+
+  // Immediate snap
+  scrollToMushafTop(false);
+
+  // Frame refine
+  requestAnimationFrame(() => {
+    scrollToMushafTop(false);
+  });
+
+  // Smooth settle after fonts and layout complete
+  setTimeout(() => {
+    scrollToMushafTop(true);
+  }, 80);
+
+  // Final lock for mobile browser address-bar transitions
+  setTimeout(() => {
+    scrollToMushafTop(false);
+  }, 220);
 }
 
 function goToPage(pageNum, direction = 'auto') {
@@ -763,10 +771,9 @@ function goToPage(pageNum, direction = 'auto') {
   State.set(s => {
     if (!s.quranProgress) s.quranProgress = {};
     s.quranProgress.currentPage = p;
-    s.quranProgress.lastReadPage = p;
+    // Browsing pages does NOT automatically mark lastReadPage!
     if (surahMeta) {
       s.quranProgress.currentSurahId = surahMeta.number;
-      s.quranProgress.lastReadSurahId = surahMeta.number;
     }
   });
 
@@ -775,8 +782,8 @@ function goToPage(pageNum, direction = 'auto') {
   // Re-render the page with navigate
   navigate('wird', p);
 
-  // Position viewport right at the top of the Mushaf golden frame (as requested by user)
-  scrollToMushafTop(false);
+  // Position viewport right at the top of the Mushaf golden frame
+  alignMushafScrollPosition();
 
   // Trigger animation and ensure perfect alignment after layout
   requestAnimationFrame(() => {
@@ -795,8 +802,6 @@ function goToPage(pageNum, direction = 'auto') {
       highlightPlayingAyah(_audioState.surahNumber, _audioState.ayahNumber);
       updateAudioBarUI();
     }
-
-    setTimeout(() => scrollToMushafTop(true), 40);
   });
 }
 
@@ -814,15 +819,10 @@ function selectSurah(surahId) {
   State.set(s => {
     s.quranProgress.currentSurahId = surahId;
     s.quranProgress.currentPage = page;
-    s.quranProgress.lastReadPage = page;
+    // Do NOT set lastReadPage here
   });
   navigate('wird', page);
-
-  // Scroll to top after DOM update
-  requestAnimationFrame(() => {
-    scrollToMushafTop();
-    setTimeout(() => scrollToMushafTop(), 50);
-  });
+  alignMushafScrollPosition();
 }
 
 function openPageJumpModal() {

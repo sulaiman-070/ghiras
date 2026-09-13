@@ -4,7 +4,7 @@
  * Authentic Madinah Mushaf Page-by-Page and Surah-by-Surah Navigation
  */
 
-import { State } from '../state.js?v=3.6';
+import { State } from '../state.js?v=4.0';
 import {
   getPage,
   getSurah,
@@ -15,12 +15,12 @@ import {
   ATHKAR,
   isQuranLoaded,
   getReciter
-} from '../data/quran.js?v=3.6';
+} from '../data/quran.js?v=4.0';
 import {
   ATHKAR_CATEGORIES,
   ATHKAR_DUAS,
   getAthkarByCategory
-} from '../data/athkar_duas.js?v=3.6';
+} from '../data/athkar_duas.js?v=4.0';
 
 let _activeTab = 'quran';       // 'quran' | 'athkar'
 let _readingMode = 'page';      // 'page' (1..604) | 'surah' (1..114)
@@ -253,9 +253,8 @@ export function renderWird(pageOverride) {
             <div class="mushaf-body" id="mushaf-text-flow-${block.surahNumber}">
               ${block.ayahs.map(ayah => {
                 const isSelected = qp.lastReadSurahId === block.surahNumber && qp.lastReadAyah === ayah.number;
-                const isRead = qp.lastReadPage >= currentPageNum || (qp.lastReadSurahId === block.surahNumber && qp.lastReadAyah >= ayah.number);
                 return `
-                  <span class="mushaf-ayah ${isSelected ? 'selected' : ''} ${isRead ? 'read-done' : ''}"
+                  <span class="mushaf-ayah ${isSelected ? 'selected' : ''}"
                         id="mushaf-ayah-${block.surahNumber}-${ayah.number}"
                         onclick="App.openAyahAction(${block.surahNumber}, ${ayah.number}, event)"
                         title="سورة ${block.surahName} • آية ${ayah.number} — اضغط للتفسير والاستماع">
@@ -289,7 +288,7 @@ export function renderWird(pageOverride) {
         </span>
         <span style="display:inline-flex;align-items:center;gap:4px;color:var(--color-gold);font-weight:600">
           <span class="material-symbols-outlined" style="font-size:0.9rem">swipe</span>
-          <span>اسحب لليسار أو انقر التالية للمتابعة</span>
+          <span>اسحب لليمين للانتقال للصفحة اليسرى</span>
         </span>
         <span style="display:inline-flex;align-items:center;gap:3px">
           <span>التالية (يسار)</span>
@@ -305,10 +304,10 @@ export function renderWird(pageOverride) {
           <span>السابقة (ص ${n(Math.max(1, currentPageNum - 1))})</span>
         </button>
 
-        <!-- Center: Mark Done & Seamlessly Advance to Next Page -->
-        <button type="button" class="btn btn--primary btn--sm" onclick="App.markPageRead()" style="flex:1.4;font-weight:700" title="تسجيل قراءة الصفحة والانتقال للصفحة التالية تلقائياً">
-          <span class="material-symbols-outlined icon-fill">check_circle</span>
-          <span>${currentPageNum < 604 ? 'أتممت الصفحة وتاليتها' : 'ختمت المصحف الشريف ✨'}</span>
+        <!-- Center: Mark Done / Bookmark in Wird -->
+        <button type="button" class="btn btn--secondary btn--sm" onclick="App.markPageRead()" style="flex:1.2;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:4px" title="تسجيل هذه الصفحة في وردك اليومي">
+          <span class="material-symbols-outlined" style="color:var(--color-gold);font-size:1.1rem">bookmark_add</span>
+          <span>تسجيل في الورد</span>
         </button>
 
         <!-- Next Page (Left side in RTL): Advance towards page 604 -->

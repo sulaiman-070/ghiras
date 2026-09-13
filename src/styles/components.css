@@ -977,6 +977,7 @@
 /* ── Classical Mushaf Page Container ── */
 .mushaf-page {
   position: relative;
+  scroll-margin-top: 10px;
   background: var(--mushaf-paper-bg);
   background: radial-gradient(circle at center, var(--mushaf-paper-inner) 40%, var(--mushaf-paper-bg) 100%);
   border-radius: var(--radius-2xl);
