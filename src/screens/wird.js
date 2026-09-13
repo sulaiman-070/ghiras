@@ -4,21 +4,23 @@
  * Authentic Madinah Mushaf Page-by-Page and Surah-by-Surah Navigation
  */
 
-import { State } from '../state.js';
+import { State } from '../state.js?v=3.5';
 import {
   getPage,
   getSurah,
   getAllSurahs,
+  getSurahForPage,
+  getJuzForPage,
   JUZ_NAMES,
   ATHKAR,
   isQuranLoaded,
   getReciter
-} from '../data/quran.js';
+} from '../data/quran.js?v=3.5';
 import {
   ATHKAR_CATEGORIES,
   ATHKAR_DUAS,
   getAthkarByCategory
-} from '../data/athkar_duas.js';
+} from '../data/athkar_duas.js?v=3.5';
 
 let _activeTab = 'quran';       // 'quran' | 'athkar'
 let _readingMode = 'page';      // 'page' (1..604) | 'surah' (1..114)
@@ -64,14 +66,15 @@ function renderAyahTextWithMask(text, isMemo) {
   }).join(' ');
 }
 
-export function renderWird() {
+export function renderWird(pageOverride) {
   const s = State.get();
   const n = State.toArabicNum;
-  const qp = s.quranProgress;
-  const activeReciter = getReciter(s.settings.reciterId);
+  const qp = s.quranProgress || {};
+  const activeReciter = getReciter(s.settings?.reciterId);
 
-  const currentPageNum = Math.max(1, Math.min(604, qp.currentPage || 1));
-  const currentSurahNum = Math.max(1, Math.min(114, qp.currentSurahId || 1));
+  const currentPageNum = Math.max(1, Math.min(604, parseInt(pageOverride, 10) || qp.currentPage || 1));
+  const surahMeta = getSurahForPage(currentPageNum);
+  const currentSurahNum = surahMeta ? surahMeta.number : Math.max(1, Math.min(114, qp.currentSurahId || 1));
 
   // Get Page Data or Surah Data based on active mode
   const pageData = getPage(currentPageNum);
@@ -152,7 +155,7 @@ export function renderWird() {
         <!-- Middle: Page Flip Controls (RTL Arabic Quran Reading Order: Right is Prev, Left is Next) -->
         <div class="mushaf-toolbar__group">
           <!-- Previous Page Button (Right in RTL: goes back towards page 1) -->
-          <button class="mushaf-tool-btn" ${currentPageNum > 1 ? `onclick="App.goToPage(${currentPageNum - 1}, 'prev')"` : 'disabled style="opacity:0.3;cursor:default"'} title="الصفحة السابقة (${currentPageNum - 1})">
+          <button type="button" class="mushaf-tool-btn" ${currentPageNum > 1 ? `onclick="App.goToPage(${currentPageNum - 1}, 'prev')"` : 'disabled style="opacity:0.3;cursor:default"'} title="الصفحة السابقة (${currentPageNum - 1})">
             <span class="material-symbols-outlined">chevron_right</span>
           </button>
 
@@ -162,7 +165,7 @@ export function renderWird() {
           </span>
 
           <!-- Next Page Button (Left in RTL: advances forward into the Quran) -->
-          <button class="mushaf-tool-btn" ${currentPageNum < 604 ? `onclick="App.goToPage(${currentPageNum + 1}, 'next')"` : 'disabled style="opacity:0.3;cursor:default"'} title="الصفحة التالية (${currentPageNum + 1})">
+          <button type="button" class="mushaf-tool-btn" ${currentPageNum < 604 ? `onclick="App.goToPage(${currentPageNum + 1}, 'next')"` : 'disabled style="opacity:0.3;cursor:default"'} title="الصفحة التالية (${currentPageNum + 1})">
             <span class="material-symbols-outlined">chevron_left</span>
           </button>
         </div>
@@ -297,19 +300,19 @@ export function renderWird() {
       <!-- Quick Page Navigation Bottom Bar (RTL Quran System) -->
       <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)">
         <!-- Previous Page (Right side in RTL): Return towards page 1 -->
-        <button class="btn btn--secondary btn--sm" ${currentPageNum > 1 ? `onclick="App.goToPage(${currentPageNum - 1}, 'prev')"` : 'disabled style="opacity:0.35;cursor:default"'} style="flex:1" title="الصفحة السابقة (ص ${currentPageNum - 1})">
+        <button type="button" class="btn btn--secondary btn--sm" ${currentPageNum > 1 ? `onclick="App.goToPage(${currentPageNum - 1}, 'prev')"` : 'disabled style="opacity:0.35;cursor:default"'} style="flex:1" title="الصفحة السابقة (ص ${currentPageNum - 1})">
           <span class="material-symbols-outlined">chevron_right</span>
           <span>السابقة (ص ${n(Math.max(1, currentPageNum - 1))})</span>
         </button>
 
         <!-- Center: Mark Done & Seamlessly Advance to Next Page -->
-        <button class="btn btn--primary btn--sm" onclick="App.markPageRead()" style="flex:1.4;font-weight:700" title="تسجيل قراءة الصفحة والانتقال للصفحة التالية تلقائياً">
+        <button type="button" class="btn btn--primary btn--sm" onclick="App.markPageRead()" style="flex:1.4;font-weight:700" title="تسجيل قراءة الصفحة والانتقال للصفحة التالية تلقائياً">
           <span class="material-symbols-outlined icon-fill">check_circle</span>
           <span>${currentPageNum < 604 ? 'أتممت الصفحة وتاليتها' : 'ختمت المصحف الشريف ✨'}</span>
         </button>
 
         <!-- Next Page (Left side in RTL): Advance towards page 604 -->
-        <button class="btn btn--secondary btn--sm" ${currentPageNum < 604 ? `onclick="App.goToPage(${currentPageNum + 1}, 'next')"` : 'disabled style="opacity:0.35;cursor:default"'} style="flex:1" title="الصفحة التالية (ص ${currentPageNum + 1})">
+        <button type="button" class="btn btn--secondary btn--sm" ${currentPageNum < 604 ? `onclick="App.goToPage(${currentPageNum + 1}, 'next')"` : 'disabled style="opacity:0.35;cursor:default"'} style="flex:1" title="الصفحة التالية (ص ${currentPageNum + 1})">
           <span>التالية (ص ${n(Math.min(604, currentPageNum + 1))})</span>
           <span class="material-symbols-outlined">chevron_left</span>
         </button>

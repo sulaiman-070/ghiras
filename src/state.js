@@ -159,8 +159,8 @@ function getStorageKey(user) {
   return 'ghiras_state_guest';
 }
 
-let _state = null;
-let _listeners = [];
+let _state = (typeof globalThis !== 'undefined' && globalThis.__GHIRAS_STATE__) ? globalThis.__GHIRAS_STATE__ : null;
+let _listeners = (typeof globalThis !== 'undefined' && globalThis.__GHIRAS_LISTENERS__) ? globalThis.__GHIRAS_LISTENERS__ : [];
 let _syncDebounceTimer = null;
 
 function scheduleServerSync() {
@@ -224,10 +224,12 @@ function load(user, remoteState) {
     checkDailyReset();
     migrateHabits();
     migrateSuhba();
+    if (typeof globalThis !== 'undefined') globalThis.__GHIRAS_STATE__ = _state;
   } catch (e) {
     console.warn('Ghiras: state load failed, using defaults', e);
     const activeUser = user || Auth.getCurrentUser();
     _state = createDefaultState(activeUser?.name, activeUser?.avatar);
+    if (typeof globalThis !== 'undefined') globalThis.__GHIRAS_STATE__ = _state;
   }
 }
 
@@ -249,6 +251,7 @@ function initForUser(user, remoteState) {
 
 function clearUserState() {
   _state = null;
+  if (typeof globalThis !== 'undefined') globalThis.__GHIRAS_STATE__ = null;
   load();
   notify();
 }
@@ -265,13 +268,18 @@ function set(updater) {
   } else {
     Object.assign(_state, updater);
   }
+  if (typeof globalThis !== 'undefined') globalThis.__GHIRAS_STATE__ = _state;
   save();
   notify();
 }
 
 function subscribe(fn) {
   _listeners.push(fn);
-  return () => { _listeners = _listeners.filter(l => l !== fn); };
+  if (typeof globalThis !== 'undefined') globalThis.__GHIRAS_LISTENERS__ = _listeners;
+  return () => {
+    _listeners = _listeners.filter(l => l !== fn);
+    if (typeof globalThis !== 'undefined') globalThis.__GHIRAS_LISTENERS__ = _listeners;
+  };
 }
 
 function notify() {
@@ -1104,3 +1112,7 @@ export const State = {
   resetState,
   toArabicNum,
 };
+
+if (typeof globalThis !== 'undefined') {
+  globalThis.State = State;
+}

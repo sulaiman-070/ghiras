@@ -160,9 +160,18 @@ export async function loadFullQuran() {
 
   _loadPromise = (async () => {
     try {
-      const resp = await fetch('src/data/quran-full.json');
-      if (!resp.ok) throw new Error('Failed to load quran-full.json: ' + resp.status);
-      const json = await resp.json();
+      let json;
+      if (typeof window === 'undefined' && typeof process !== 'undefined' && process.versions?.node) {
+        const fs = await import('fs');
+        const url = await import('url');
+        const filePath = url.fileURLToPath(new URL('./quran-full.json', import.meta.url));
+        json = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      } else {
+        const quranUrl = new URL('./quran-full.json', import.meta.url).href;
+        const resp = await fetch(quranUrl);
+        if (!resp.ok) throw new Error('Failed to load quran-full.json: ' + resp.status);
+        json = await resp.json();
+      }
       const rawSurahs = json.data.surahs;
 
       // Initialize empty pages 1..604
@@ -241,6 +250,9 @@ export async function loadFullQuran() {
 
       _isLoaded = true;
       console.log('GHIRAS: Holy Quran fully loaded (114 Surahs, 604 Pages, 6236 Ayat)');
+      if (typeof window !== 'undefined' && window.App && typeof window.App.refreshMushafView === 'function') {
+        window.App.refreshMushafView();
+      }
       return true;
     } catch (err) {
       console.error('GHIRAS: Error loading full Quran', err);
@@ -401,14 +413,50 @@ export function getDailyAyah() {
   };
 }
 
-// ── Fallback Builder ──────────────────────────────────────────────────
+// ── Accurate Surah & Juz Mapping for all 604 Pages ──────────────────
+export function getSurahForPage(p) {
+  const pageNum = Math.max(1, Math.min(604, parseInt(p, 10) || 1));
+  let matched = ALL_SURAHS[0];
+  for (let i = 0; i < ALL_SURAHS.length; i++) {
+    if (ALL_SURAHS[i].page <= pageNum) {
+      matched = ALL_SURAHS[i];
+    } else {
+      break;
+    }
+  }
+  return matched;
+}
+
+export function getJuzForPage(p) {
+  const pageNum = Math.max(1, Math.min(604, parseInt(p, 10) || 1));
+  const juzStarts = [
+    1, 22, 42, 62, 82, 102, 122, 142, 162, 182,
+    202, 222, 242, 262, 282, 302, 322, 342, 362, 382,
+    402, 422, 442, 462, 482, 502, 522, 542, 562, 582
+  ];
+  let juz = 1;
+  for (let i = 0; i < juzStarts.length; i++) {
+    if (juzStarts[i] <= pageNum) {
+      juz = i + 1;
+    } else {
+      break;
+    }
+  }
+  return Math.min(30, juz);
+}
+
+// ── Fallback Builder (Ensures no page ever erroneously resets to Al-Fatiha) ─
 function buildFallbackPage(p) {
-  const meta = ALL_SURAHS.find(s => s.page === p) || ALL_SURAHS[0];
+  const pageNum = Math.max(1, Math.min(604, parseInt(p, 10) || 1));
+  const meta = getSurahForPage(pageNum);
+  const juzNum = getJuzForPage(pageNum);
+  const isNewSurah = meta.page === pageNum;
+
   return {
-    pageNumber: p,
-    juz: meta.juz,
-    juzName: JUZ_NAMES[meta.juz] || `الجزء ${meta.juz}`,
-    hizbQuarter: 1,
+    pageNumber: pageNum,
+    juz: juzNum,
+    juzName: JUZ_NAMES[juzNum] || `الجزء ${juzNum}`,
+    hizbQuarter: Math.min(240, Math.ceil(pageNum / 2.5)),
     blocks: [
       {
         surahNumber: meta.number,
@@ -416,15 +464,15 @@ function buildFallbackPage(p) {
         fullName: meta.fullName,
         type: meta.type,
         ayahCount: meta.ayahCount,
-        isNewSurahStart: true,
-        showBasmala: meta.number !== 1 && meta.number !== 9,
+        isNewSurahStart: isNewSurah,
+        showBasmala: isNewSurah && meta.number !== 1 && meta.number !== 9,
         ayahs: [
           {
-            number: 1,
+            number: isNewSurah ? 1 : Math.max(1, (pageNum - meta.page) * 8 + 1),
             globalNumber: 1,
-            text: meta.number === 1 ? 'بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ' : 'الٓمٓ',
-            juz: meta.juz,
-            page: p
+            text: isNewSurah ? (meta.number === 1 ? 'بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ' : 'الٓمٓ') : `... قراءة مباركة من سورة ${meta.name} (الصفحة ${pageNum}) ...`,
+            juz: juzNum,
+            page: pageNum
           }
         ]
       }

@@ -3,8 +3,8 @@
  * Orchestrates routing, rendering, and all user interactions
  */
 
-import { State } from './state.js?v=2.0';
-import { Auth }  from './auth.js?v=2.0';
+import { State } from './state.js?v=3.5';
+import { Auth }  from './auth.js?v=3.5';
 import {
   renderAuthScreen,
   setAuthMode,
@@ -12,8 +12,8 @@ import {
   setAuthError,
   setAuthLoading,
   togglePasswordVisibility
-} from './screens/auth_screen.js?v=2.0';
-import { renderHome }       from './screens/home.js?v=2.0';
+} from './screens/auth_screen.js?v=3.5';
+import { renderHome }       from './screens/home.js?v=3.5';
 import {
   renderWird,
   setWirdTab,
@@ -23,19 +23,21 @@ import {
   setPrayerSub,
   setAthkarSearch,
   renderAthkarTabContent
-} from './screens/wird.js?v=2.0';
-import { ATHKAR_DUAS, ATHKAR_CATEGORIES } from './data/athkar_duas.js?v=2.0';
-import { renderGarden }     from './screens/garden.js?v=2.0';
-import { renderSuhba, setSuhbaTab, getSuhbaTab } from './screens/suhba.js?v=2.0';
-import { renderProfile }    from './screens/profile.js?v=2.0';
-import { renderOnboarding, onboardingStepData } from './screens/onboarding.js?v=2.0';
-import { SOUL_REMEDIES, getSoulRemedy } from './data/remedies.js?v=2.0';
+} from './screens/wird.js?v=3.5';
+import { ATHKAR_DUAS, ATHKAR_CATEGORIES } from './data/athkar_duas.js?v=3.5';
+import { renderGarden }     from './screens/garden.js?v=3.5';
+import { renderSuhba, setSuhbaTab, getSuhbaTab } from './screens/suhba.js?v=3.5';
+import { renderProfile }    from './screens/profile.js?v=3.5';
+import { renderOnboarding, onboardingStepData } from './screens/onboarding.js?v=3.5';
+import { SOUL_REMEDIES, getSoulRemedy } from './data/remedies.js?v=3.5';
 import {
   getSurahById,
   getSurah,
   getPage,
   getAllSurahs,
   getPageOfSurah,
+  getSurahForPage,
+  getJuzForPage,
   ALL_SURAHS,
   JUZ_NAMES,
   loadFullQuran,
@@ -47,14 +49,14 @@ import {
   QURAN_RECITERS,
   getReciters,
   getReciter
-} from './data/quran.js';
-import { getGardenStage }   from './data/habits.js';
+} from './data/quran.js?v=3.5';
+import { getGardenStage }   from './data/habits.js?v=3.5';
 import {
   playAlarmChime,
   requestNotificationPermission,
   sendAlarmNotification,
   startAlarmClock
-} from './data/alarm.js';
+} from './data/alarm.js?v=3.5';
 
 // ── Screens Config ─────────────────────────────────────────
 const SCREENS = {
@@ -83,7 +85,14 @@ let _audioState = {
 };
 
 // ── Boot ───────────────────────────────────────────────────
-function boot() {
+async function boot() {
+  // Preload full Quran dataset so all 604 pages and 114 Surahs are immediately available
+  try {
+    await loadFullQuran();
+  } catch (err) {
+    console.warn('GHIRAS: Quran data preload error', err);
+  }
+
   const currentUser = Auth.getCurrentUser();
 
   if (!currentUser) {
@@ -489,7 +498,7 @@ function buildAppShell() {
 }
 
 // ── Navigation ─────────────────────────────────────────────
-function navigate(screenId) {
+function navigate(screenId, params = null) {
   if (!SCREENS[screenId]) return;
   _currentScreen = screenId;
   State.setActiveTab(screenId);
@@ -500,7 +509,7 @@ function navigate(screenId) {
 
   container.innerHTML = `
     <div class="screen active" id="screen-${screenId}" role="tabpanel">
-      ${SCREENS[screenId].render()}
+      ${SCREENS[screenId].render(params)}
     </div>
   `;
 
@@ -701,7 +710,7 @@ function switchWirdTab(tab) {
 
 function goToPage(pageNum, direction = 'auto') {
   closeAyahAction();
-  const currentP = State.get().quranProgress.currentPage || 1;
+  const currentP = State.get().quranProgress?.currentPage || 1;
   const p = Math.max(1, Math.min(604, parseInt(pageNum, 10) || 1));
 
   let animDir = direction;
@@ -709,11 +718,21 @@ function goToPage(pageNum, direction = 'auto') {
     animDir = p > currentP ? 'next' : (p < currentP ? 'prev' : null);
   }
 
+  const surahMeta = getSurahForPage(p);
+
   State.set(s => {
+    if (!s.quranProgress) s.quranProgress = {};
     s.quranProgress.currentPage = p;
     s.quranProgress.lastReadPage = p;
+    if (surahMeta) {
+      s.quranProgress.currentSurahId = surahMeta.number;
+      s.quranProgress.lastReadSurahId = surahMeta.number;
+    }
   });
-  navigate('wird');
+
+  console.log(`[GHIRAS Mushaf] Navigating to page ${p} (${surahMeta?.name || 'القرآن الكريم'}), direction: ${animDir}`);
+
+  navigate('wird', p);
 
   // Trigger page flip animation and smooth scroll
   setTimeout(() => {
@@ -727,13 +746,20 @@ function goToPage(pageNum, direction = 'auto') {
         void page.offsetWidth;
         page.classList.add('mushaf-flip-prev');
       }
-      page.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
     if (_audioState.isPlaying || _audioInstance) {
       highlightPlayingAyah(_audioState.surahNumber, _audioState.ayahNumber);
       updateAudioBarUI();
     }
-  }, 60);
+  }, 40);
+}
+
+function refreshMushafView() {
+  if (_currentScreen === 'wird' && _wirdActiveTab === 'quran') {
+    const s = State.get();
+    const curPage = s.quranProgress?.currentPage || 1;
+    goToPage(curPage);
+  }
 }
 
 function selectSurah(surahId) {
@@ -3527,6 +3553,7 @@ window.App = {
   switchWirdTab,
   selectSurah,
   goToPage,
+  refreshMushafView,
   openPageJumpModal,
   submitPageJump,
   openSurahIndex,
