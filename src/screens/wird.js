@@ -4,7 +4,7 @@
  * Authentic Madinah Mushaf Page-by-Page and Surah-by-Surah Navigation
  */
 
-import { State } from '../state.js?v=3.5';
+import { State } from '../state.js?v=3.6';
 import {
   getPage,
   getSurah,
@@ -15,12 +15,12 @@ import {
   ATHKAR,
   isQuranLoaded,
   getReciter
-} from '../data/quran.js?v=3.5';
+} from '../data/quran.js?v=3.6';
 import {
   ATHKAR_CATEGORIES,
   ATHKAR_DUAS,
   getAthkarByCategory
-} from '../data/athkar_duas.js?v=3.5';
+} from '../data/athkar_duas.js?v=3.6';
 
 let _activeTab = 'quran';       // 'quran' | 'athkar'
 let _readingMode = 'page';      // 'page' (1..604) | 'surah' (1..114)

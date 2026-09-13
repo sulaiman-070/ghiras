@@ -3,8 +3,8 @@
  * Orchestrates routing, rendering, and all user interactions
  */
 
-import { State } from './state.js?v=3.5';
-import { Auth }  from './auth.js?v=3.5';
+import { State } from './state.js?v=3.6';
+import { Auth }  from './auth.js?v=3.6';
 import {
   renderAuthScreen,
   setAuthMode,
@@ -12,8 +12,8 @@ import {
   setAuthError,
   setAuthLoading,
   togglePasswordVisibility
-} from './screens/auth_screen.js?v=3.5';
-import { renderHome }       from './screens/home.js?v=3.5';
+} from './screens/auth_screen.js?v=3.6';
+import { renderHome }       from './screens/home.js?v=3.6';
 import {
   renderWird,
   setWirdTab,
@@ -23,13 +23,13 @@ import {
   setPrayerSub,
   setAthkarSearch,
   renderAthkarTabContent
-} from './screens/wird.js?v=3.5';
-import { ATHKAR_DUAS, ATHKAR_CATEGORIES } from './data/athkar_duas.js?v=3.5';
-import { renderGarden }     from './screens/garden.js?v=3.5';
-import { renderSuhba, setSuhbaTab, getSuhbaTab } from './screens/suhba.js?v=3.5';
-import { renderProfile }    from './screens/profile.js?v=3.5';
-import { renderOnboarding, onboardingStepData } from './screens/onboarding.js?v=3.5';
-import { SOUL_REMEDIES, getSoulRemedy } from './data/remedies.js?v=3.5';
+} from './screens/wird.js?v=3.6';
+import { ATHKAR_DUAS, ATHKAR_CATEGORIES } from './data/athkar_duas.js?v=3.6';
+import { renderGarden }     from './screens/garden.js?v=3.6';
+import { renderSuhba, setSuhbaTab, getSuhbaTab } from './screens/suhba.js?v=3.6';
+import { renderProfile }    from './screens/profile.js?v=3.6';
+import { renderOnboarding, onboardingStepData } from './screens/onboarding.js?v=3.6';
+import { SOUL_REMEDIES, getSoulRemedy } from './data/remedies.js?v=3.6';
 import {
   getSurahById,
   getSurah,
@@ -49,14 +49,14 @@ import {
   QURAN_RECITERS,
   getReciters,
   getReciter
-} from './data/quran.js?v=3.5';
-import { getGardenStage }   from './data/habits.js?v=3.5';
+} from './data/quran.js?v=3.6';
+import { getGardenStage }   from './data/habits.js?v=3.6';
 import {
   playAlarmChime,
   requestNotificationPermission,
   sendAlarmNotification,
   startAlarmClock
-} from './data/alarm.js?v=3.5';
+} from './data/alarm.js?v=3.6';
 
 // ── Screens Config ─────────────────────────────────────────
 const SCREENS = {
@@ -708,6 +708,38 @@ function switchWirdTab(tab) {
   }
 }
 
+function scrollToMushafTop(smooth = true) {
+  const behavior = smooth ? 'smooth' : 'auto';
+  const mushafPage = document.getElementById('mushaf-page');
+  const toolbar = document.querySelector('.mushaf-toolbar');
+  const target = toolbar || mushafPage;
+
+  if (target) {
+    const header = document.querySelector('.app-header');
+    const isHeaderVisible = header && window.getComputedStyle(header).display !== 'none';
+    const headerHeight = isHeaderVisible ? header.offsetHeight : 0;
+    const rect = target.getBoundingClientRect();
+    const currentScrollY = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+    const targetY = Math.max(0, currentScrollY + rect.top - headerHeight - 8);
+
+    // If near the top, scroll cleanly to 0
+    const finalY = targetY < 130 ? 0 : targetY;
+
+    window.scrollTo({
+      top: finalY,
+      behavior: behavior
+    });
+  } else {
+    window.scrollTo({
+      top: 0,
+      behavior: behavior
+    });
+  }
+
+  const container = document.getElementById('screen-container');
+  if (container) container.scrollTop = 0;
+}
+
 function goToPage(pageNum, direction = 'auto') {
   closeAyahAction();
   const currentP = State.get().quranProgress?.currentPage || 1;
@@ -732,10 +764,14 @@ function goToPage(pageNum, direction = 'auto') {
 
   console.log(`[GHIRAS Mushaf] Navigating to page ${p} (${surahMeta?.name || 'القرآن الكريم'}), direction: ${animDir}`);
 
+  // Instant scroll to beginning of Surah/page
+  scrollToMushafTop(false);
+
   navigate('wird', p);
 
-  // Trigger page flip animation and smooth scroll
+  // Trigger page flip animation and smooth scroll to beginning of Surah
   setTimeout(() => {
+    scrollToMushafTop(true);
     const page = document.getElementById('mushaf-page');
     if (page) {
       page.classList.remove('mushaf-flip-next', 'mushaf-flip-prev');
@@ -770,13 +806,13 @@ function selectSurah(surahId) {
     s.quranProgress.currentPage = page;
     s.quranProgress.lastReadPage = page;
   });
-  navigate('wird');
+  scrollToMushafTop(false);
+  navigate('wird', page);
 
-  // Smooth scroll to top of Mushaf page
+  // Smooth scroll to beginning of Surah/page
   setTimeout(() => {
-    const pageEl = document.getElementById('mushaf-page');
-    if (pageEl) pageEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, 80);
+    scrollToMushafTop(true);
+  }, 60);
 }
 
 function openPageJumpModal() {
@@ -3554,6 +3590,7 @@ window.App = {
   selectSurah,
   goToPage,
   refreshMushafView,
+  scrollToMushafTop,
   openPageJumpModal,
   submitPageJump,
   openSurahIndex,
