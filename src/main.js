@@ -165,13 +165,13 @@ function initMushafGestureHandlers() {
       const s = State.get();
       const curPage = s.quranProgress.currentPage || 1;
 
-      if (deltaX < 0) {
-        // Swiped towards LEFT: Next Page in Arabic Quran reading order
+      if (deltaX > 0) {
+        // سحب من اليسار لليمين -> الانتقال للصفحة اليسرى (التالية)
         if (curPage < 604) {
           goToPage(curPage + 1, 'next');
         }
       } else {
-        // Swiped towards RIGHT: Previous Page in Arabic Quran reading order
+        // سحب من اليمين لليسار -> الانتقال للصفحة اليمنى (السابقة)
         if (curPage > 1) {
           goToPage(curPage - 1, 'prev');
         }
@@ -524,11 +524,15 @@ function navigate(screenId, params = null) {
     if (icon) icon.classList.toggle('icon-fill', isActive);
   });
 
-  // Scroll to top — reset ALL possible scroll containers
-  container.scrollTop = 0;
-  window.scrollTo(0, 0);
-  document.documentElement.scrollTop = 0;
-  document.body.scrollTop = 0;
+  // Scroll position: for Mushaf screen, align specifically to Mushaf frame; for other screens reset to top
+  if (screenId === 'wird') {
+    requestAnimationFrame(() => scrollToMushafTop(false));
+  } else {
+    container.scrollTop = 0;
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }
   updateHeader();
 
   // Sync live companion stats if on suhba screen
@@ -711,15 +715,37 @@ function switchWirdTab(tab) {
   }
 }
 
-function scrollToMushafTop() {
-  // Force-reset ALL scroll positions to absolute top
-  window.scrollTo(0, 0);
-  document.documentElement.scrollTop = 0;
-  document.body.scrollTop = 0;
-  const container = document.getElementById('screen-container');
-  if (container) container.scrollTop = 0;
-  const wirdContent = document.getElementById('wird-content');
-  if (wirdContent) wirdContent.scrollTop = 0;
+function scrollToMushafTop(smooth = true) {
+  const mushafPage = document.getElementById('mushaf-page');
+  if (mushafPage) {
+    const rect = mushafPage.getBoundingClientRect();
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop || 0;
+    // Exactly at the top border of the Mushaf gilded frame with a small 8px margin
+    const targetY = scrollTop + rect.top - 8;
+    const finalY = Math.max(0, targetY);
+
+    window.scrollTo({
+      top: finalY,
+      behavior: smooth ? 'smooth' : 'auto'
+    });
+
+    const container = document.getElementById('screen-container');
+    if (container && container.scrollHeight > container.clientHeight) {
+      container.scrollTo({
+        top: Math.max(0, container.scrollTop + rect.top - 8),
+        behavior: smooth ? 'smooth' : 'auto'
+      });
+    }
+    const wirdContent = document.getElementById('wird-content');
+    if (wirdContent && wirdContent.scrollHeight > wirdContent.clientHeight) {
+      wirdContent.scrollTo({
+        top: Math.max(0, wirdContent.scrollTop + rect.top - 8),
+        behavior: smooth ? 'smooth' : 'auto'
+      });
+    }
+  } else {
+    window.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
+  }
 }
 
 function goToPage(pageNum, direction = 'auto') {
@@ -746,13 +772,14 @@ function goToPage(pageNum, direction = 'auto') {
 
   console.log(`[GHIRAS Mushaf] Navigating to page ${p} (${surahMeta?.name || 'القرآن الكريم'}), direction: ${animDir}`);
 
-  // Re-render the page with navigate — this also scrolls to top
+  // Re-render the page with navigate
   navigate('wird', p);
 
-  // After DOM update: force scroll to top again + trigger page flip animation
-  requestAnimationFrame(() => {
-    scrollToMushafTop();
+  // Position viewport right at the top of the Mushaf golden frame (as requested by user)
+  scrollToMushafTop(false);
 
+  // Trigger animation and ensure perfect alignment after layout
+  requestAnimationFrame(() => {
     const page = document.getElementById('mushaf-page');
     if (page) {
       page.classList.remove('mushaf-flip-next', 'mushaf-flip-prev');
@@ -769,8 +796,7 @@ function goToPage(pageNum, direction = 'auto') {
       updateAudioBarUI();
     }
 
-    // Extra safety: scroll again after a short delay to ensure DOM is fully laid out
-    setTimeout(() => scrollToMushafTop(), 50);
+    setTimeout(() => scrollToMushafTop(true), 40);
   });
 }
 
