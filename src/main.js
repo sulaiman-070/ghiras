@@ -524,8 +524,11 @@ function navigate(screenId, params = null) {
     if (icon) icon.classList.toggle('icon-fill', isActive);
   });
 
-  // Scroll to top
+  // Scroll to top — reset ALL possible scroll containers
   container.scrollTop = 0;
+  window.scrollTo(0, 0);
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
   updateHeader();
 
   // Sync live companion stats if on suhba screen
@@ -708,36 +711,15 @@ function switchWirdTab(tab) {
   }
 }
 
-function scrollToMushafTop(smooth = true) {
-  const behavior = smooth ? 'smooth' : 'auto';
-  const mushafPage = document.getElementById('mushaf-page');
-  const toolbar = document.querySelector('.mushaf-toolbar');
-  const target = toolbar || mushafPage;
-
-  if (target) {
-    const header = document.querySelector('.app-header');
-    const isHeaderVisible = header && window.getComputedStyle(header).display !== 'none';
-    const headerHeight = isHeaderVisible ? header.offsetHeight : 0;
-    const rect = target.getBoundingClientRect();
-    const currentScrollY = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
-    const targetY = Math.max(0, currentScrollY + rect.top - headerHeight - 8);
-
-    // If near the top, scroll cleanly to 0
-    const finalY = targetY < 130 ? 0 : targetY;
-
-    window.scrollTo({
-      top: finalY,
-      behavior: behavior
-    });
-  } else {
-    window.scrollTo({
-      top: 0,
-      behavior: behavior
-    });
-  }
-
+function scrollToMushafTop() {
+  // Force-reset ALL scroll positions to absolute top
+  window.scrollTo(0, 0);
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
   const container = document.getElementById('screen-container');
   if (container) container.scrollTop = 0;
+  const wirdContent = document.getElementById('wird-content');
+  if (wirdContent) wirdContent.scrollTop = 0;
 }
 
 function goToPage(pageNum, direction = 'auto') {
@@ -764,14 +746,13 @@ function goToPage(pageNum, direction = 'auto') {
 
   console.log(`[GHIRAS Mushaf] Navigating to page ${p} (${surahMeta?.name || 'القرآن الكريم'}), direction: ${animDir}`);
 
-  // Instant scroll to beginning of Surah/page
-  scrollToMushafTop(false);
-
+  // Re-render the page with navigate — this also scrolls to top
   navigate('wird', p);
 
-  // Trigger page flip animation and smooth scroll to beginning of Surah
-  setTimeout(() => {
-    scrollToMushafTop(true);
+  // After DOM update: force scroll to top again + trigger page flip animation
+  requestAnimationFrame(() => {
+    scrollToMushafTop();
+
     const page = document.getElementById('mushaf-page');
     if (page) {
       page.classList.remove('mushaf-flip-next', 'mushaf-flip-prev');
@@ -787,7 +768,10 @@ function goToPage(pageNum, direction = 'auto') {
       highlightPlayingAyah(_audioState.surahNumber, _audioState.ayahNumber);
       updateAudioBarUI();
     }
-  }, 40);
+
+    // Extra safety: scroll again after a short delay to ensure DOM is fully laid out
+    setTimeout(() => scrollToMushafTop(), 50);
+  });
 }
 
 function refreshMushafView() {
@@ -806,13 +790,13 @@ function selectSurah(surahId) {
     s.quranProgress.currentPage = page;
     s.quranProgress.lastReadPage = page;
   });
-  scrollToMushafTop(false);
   navigate('wird', page);
 
-  // Smooth scroll to beginning of Surah/page
-  setTimeout(() => {
-    scrollToMushafTop(true);
-  }, 60);
+  // Scroll to top after DOM update
+  requestAnimationFrame(() => {
+    scrollToMushafTop();
+    setTimeout(() => scrollToMushafTop(), 50);
+  });
 }
 
 function openPageJumpModal() {
