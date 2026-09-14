@@ -224,16 +224,102 @@ function getUserPublicStats(user, state) {
   };
 }
 
+// ── Security: PBKDF2 with strong iterations (OWASP 2024 recommendation) ──
+const PBKDF2_ITERATIONS = 100000;
+
 function hashPassword(password, salt) {
-  return crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+  return crypto.pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, 64, 'sha512').toString('hex');
 }
+
+// ── Security: Rehash old weak passwords on login ──
+function needsRehash(user) {
+  return user._pbkdf2Iterations !== PBKDF2_ITERATIONS;
+}
+
+function rehashAndSave(user, password) {
+  const newSalt = crypto.randomBytes(16).toString('hex');
+  user.salt = newSalt;
+  user.passwordHash = hashPassword(password, newSalt);
+  user._pbkdf2Iterations = PBKDF2_ITERATIONS;
+  const users = loadUsers();
+  const idx = users.findIndex(u => u.id === user.id);
+  if (idx >= 0) {
+    users[idx] = user;
+    saveUsers(users);
+  }
+}
+
+// ── Security: Rate Limiting (Brute Force Protection) ──
+const _rateLimitStore = new Map();
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const RATE_LIMIT_MAX_ATTEMPTS = 10; // max 10 attempts per window
+
+function getRateLimitKey(req) {
+  return req.socket?.remoteAddress || req.headers['x-forwarded-for'] || 'unknown';
+}
+
+function checkRateLimit(req) {
+  const key = getRateLimitKey(req);
+  const now = Date.now();
+  let entry = _rateLimitStore.get(key);
+  
+  if (!entry || (now - entry.windowStart) > RATE_LIMIT_WINDOW_MS) {
+    entry = { windowStart: now, count: 0 };
+  }
+  
+  entry.count++;
+  _rateLimitStore.set(key, entry);
+  
+  // Cleanup old entries periodically
+  if (_rateLimitStore.size > 1000) {
+    for (const [k, v] of _rateLimitStore) {
+      if ((now - v.windowStart) > RATE_LIMIT_WINDOW_MS) _rateLimitStore.delete(k);
+    }
+  }
+  
+  return entry.count <= RATE_LIMIT_MAX_ATTEMPTS;
+}
+
+// ── Security: Logging ──
+function logSecurity(event, details = {}) {
+  const timestamp = new Date().toISOString();
+  const msg = `[SECURITY] ${timestamp} | ${event} | ${JSON.stringify(details)}`;
+  console.log(msg);
+}
+
+// ── Security: CORS Allowed Origins ──
+const ALLOWED_ORIGINS = [
+  'http://localhost:5500',
+  'http://localhost:3000',
+  'http://127.0.0.1:5500',
+  'https://sulaiman-070.github.io',
+  'https://ghiras-backend-wq79.onrender.com'
+];
+
+function getCorsOrigin(req) {
+  const origin = req.headers.origin || '';
+  if (ALLOWED_ORIGINS.some(o => origin.startsWith(o))) {
+    return origin;
+  }
+  // Allow same-origin requests (no Origin header)
+  if (!origin) return '*';
+  return ALLOWED_ORIGINS[0];
+}
+
+// ── Security Headers ──
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'X-XSS-Protection': '1; mode=block',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+};
 
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
     req.on('data', chunk => {
       body += chunk;
-      if (body.length > 10 * 1024 * 1024) { // 10MB limit
+      if (body.length > 2 * 1024 * 1024) { // 2MB limit (reduced from 10MB)
         reject(new Error('حجم البيانات كبير جداً'));
       }
     });
@@ -248,13 +334,15 @@ function readJsonBody(req) {
   });
 }
 
-function sendJson(res, statusCode, data) {
+function sendJson(res, statusCode, data, req = null) {
+  const corsOrigin = req ? getCorsOrigin(req) : '*';
   res.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': corsOrigin,
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-guest-id',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Cache-Control': 'no-cache'
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    ...SECURITY_HEADERS
   });
   res.end(JSON.stringify(data));
 }
@@ -497,7 +585,15 @@ async function handleApiRequest(req, res, parsedUrl) {
       status: 'ok',
       service: 'ghiras-api',
       time: new Date().toISOString()
-    });
+    }, req);
+  }
+
+  // Security: Rate limit auth endpoints
+  if ((pathname === '/api/auth/login' || pathname === '/api/auth/register') && method === 'POST') {
+    if (!checkRateLimit(req)) {
+      logSecurity('RATE_LIMIT_EXCEEDED', { ip: getRateLimitKey(req), endpoint: pathname });
+      return sendJson(res, 429, { error: 'تم تجاوز عدد المحاولات المسموحة. يرجى الانتظار ١٥ دقيقة والمحاولة مجدداً.' }, req);
+    }
   }
 
   // 1. POST /api/auth/register
@@ -568,7 +664,7 @@ async function handleApiRequest(req, res, parsedUrl) {
         state: initialState
       });
     } catch (err) {
-      return sendJson(res, 500, { error: err.message || 'حدث خطأ أثناء إنشاء الحساب' });
+      return sendJson(res, 500, { error: err.message || 'حدث خطأ أثناء إنشاء الحساب' }, req);
     }
   }
 
@@ -586,13 +682,31 @@ async function handleApiRequest(req, res, parsedUrl) {
       const users = loadUsers();
       const user = users.find(u => u.email.toLowerCase() === email);
       if (!user) {
-        return sendJson(res, 401, { error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' });
+        logSecurity('LOGIN_FAILED', { email, reason: 'user_not_found', ip: getRateLimitKey(req) });
+        return sendJson(res, 401, { error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' }, req);
       }
 
-      const calculatedHash = hashPassword(password, user.salt);
+      // Try current iteration count first, then fall back to old (1000) for migration
+      let calculatedHash = hashPassword(password, user.salt);
+      let usedLegacy = false;
       if (calculatedHash !== user.passwordHash) {
-        return sendJson(res, 401, { error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' });
+        // Try legacy 1000 iterations for old accounts
+        const legacyHash = crypto.pbkdf2Sync(password, user.salt, 1000, 64, 'sha512').toString('hex');
+        if (legacyHash === user.passwordHash) {
+          usedLegacy = true;
+        } else {
+          logSecurity('LOGIN_FAILED', { email, reason: 'wrong_password', ip: getRateLimitKey(req) });
+          return sendJson(res, 401, { error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' }, req);
+        }
       }
+
+      // Auto-rehash weak passwords to strong iterations
+      if (usedLegacy || needsRehash(user)) {
+        rehashAndSave(user, password);
+        logSecurity('PASSWORD_REHASHED', { userId: user.id });
+      }
+
+      logSecurity('LOGIN_SUCCESS', { userId: user.id, ip: getRateLimitKey(req) });
 
       // Create new session token
       const token = 'tok_' + crypto.randomBytes(32).toString('hex');
@@ -619,9 +733,9 @@ async function handleApiRequest(req, res, parsedUrl) {
           createdAt: user.createdAt
         },
         state: userState
-      });
+      }, req);
     } catch (err) {
-      return sendJson(res, 500, { error: err.message || 'حدث خطأ أثناء تسجيل الدخول' });
+      return sendJson(res, 500, { error: err.message || 'حدث خطأ أثناء تسجيل الدخول' }, req);
     }
   }
 
@@ -668,22 +782,42 @@ async function handleApiRequest(req, res, parsedUrl) {
   if (pathname === '/api/user/sync' && method === 'POST') {
     const sessionInfo = getSessionUser(req);
     if (!sessionInfo) {
-      return sendJson(res, 401, { error: 'غير مصرح' });
+      return sendJson(res, 401, { error: 'غير مصرح' }, req);
     }
 
     try {
       const body = await readJsonBody(req);
-      if (!body || typeof body !== 'object') {
-        return sendJson(res, 400, { error: 'بيانات غير صالحة' });
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return sendJson(res, 400, { error: 'بيانات غير صالحة' }, req);
+      }
+
+      // Security: Validate expected state structure
+      const allowedTopKeys = ['version', 'isOnboarded', 'user', 'habits', 'garden', 'quranProgress',
+        'khatmaPlan', 'suhba', 'settings', 'reminders', 'ui', '_todayKey',
+        'athkarCounters', 'athkarLastResetDate'];
+      const bodyKeys = Object.keys(body);
+      const hasValidStructure = bodyKeys.length > 0 && bodyKeys.length < 50 &&
+        bodyKeys.some(k => allowedTopKeys.includes(k));
+
+      if (!hasValidStructure) {
+        logSecurity('SYNC_REJECTED', { userId: sessionInfo.user.id, reason: 'invalid_structure', keys: bodyKeys.slice(0, 10) });
+        return sendJson(res, 400, { error: 'بنية البيانات غير صالحة' }, req);
+      }
+
+      // Security: Limit JSON string size to 1MB for state
+      const stateStr = JSON.stringify(body);
+      if (stateStr.length > 1024 * 1024) {
+        logSecurity('SYNC_REJECTED', { userId: sessionInfo.user.id, reason: 'too_large', size: stateStr.length });
+        return sendJson(res, 413, { error: 'حجم البيانات كبير جداً' }, req);
       }
 
       saveUserState(sessionInfo.user.id, body);
       return sendJson(res, 200, {
         success: true,
         syncedAt: new Date().toISOString()
-      });
+      }, req);
     } catch (err) {
-      return sendJson(res, 500, { error: err.message || 'فشل حفظ بيانات التقدم' });
+      return sendJson(res, 500, { error: err.message || 'فشل حفظ بيانات التقدم' }, req);
     }
   }
 
@@ -701,22 +835,26 @@ async function handleApiRequest(req, res, parsedUrl) {
     });
   }
 
-  // 7. GET /api/users/list
+  // 7. GET /api/users/list (requires authentication)
   if (pathname === '/api/users/list' && method === 'GET') {
-    const users = loadUsers();
     const sessionInfo = getSessionUser(req);
-    const currentId = sessionInfo ? sessionInfo.user.id : null;
+    if (!sessionInfo) {
+      return sendJson(res, 401, { error: 'يرجى تسجيل الدخول لعرض قائمة المستخدمين' }, req);
+    }
 
+    const users = loadUsers();
+    const currentId = sessionInfo.user.id;
+
+    // Security: Only expose minimal info (no emails)
     const list = users
       .filter(u => u.id !== currentId)
       .map(u => ({
         id: u.id,
         userTag: u.userTag,
         name: u.name,
-        email: u.email,
         avatar: u.avatar
       }));
-    return sendJson(res, 200, { success: true, users: list });
+    return sendJson(res, 200, { success: true, users: list }, req);
   }
 
   // 8. GET /api/users/lookup?query=...
@@ -1032,10 +1170,13 @@ const MIME_TYPES = {
 const server = http.createServer(async (req, res) => {
   // CORS Preflight
   if (req.method === 'OPTIONS') {
+    const corsOrigin = getCorsOrigin(req);
     res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': corsOrigin,
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-guest-id',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Max-Age': '86400',
+      ...SECURITY_HEADERS
     });
     return res.end();
   }
@@ -1090,7 +1231,8 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, {
       'Content-Type': mimeType,
       'Cache-Control': 'no-cache',
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': getCorsOrigin(req),
+      ...SECURITY_HEADERS
     });
     res.end(data);
   });

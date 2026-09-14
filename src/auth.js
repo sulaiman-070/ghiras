@@ -201,14 +201,9 @@ export const Auth = {
 
     if (userRecord.passwordHash) {
       const hashedInput = await hashPasswordLocal(password);
-      // Support both old plaintext and new hashed passwords
-      if (userRecord.passwordHash !== hashedInput && userRecord.passwordHash !== password) {
+      // Security: Only compare hashed passwords — no plaintext fallback
+      if (userRecord.passwordHash !== hashedInput) {
         throw new Error('كلمة المرور غير صحيحة');
-      }
-      // Migrate old plaintext to hashed if needed
-      if (userRecord.passwordHash === password && userRecord.passwordHash !== hashedInput) {
-        userRecord.passwordHash = hashedInput;
-        saveLocalUsers(localUsers);
       }
     }
 
