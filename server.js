@@ -886,25 +886,140 @@ async function handleApiRequest(req, res, parsedUrl) {
 
   // 8. GET /api/users/lookup?query=...
   if (pathname === '/api/users/lookup' && method === 'GET') {
-    const q = (parsedUrl.query.query || '').trim().toLowerCase();
-    if (!q) {
-      return sendJson(res, 400, { error: 'يرجى إدخال معرّف المستخدم أو بريده' });
+    const rawQ = (parsedUrl.query.query || '').trim();
+    if (!rawQ) {
+      return sendJson(res, 400, { error: 'يرجى إدخال معرّف المستخدم أو بريده' }, req);
     }
 
-    const users = loadUsers();
-    const cleanQ = q.startsWith('ghr-') ? q : `ghr-${q}`;
+    const q = rawQ.toLowerCase();
+    const cleanGhr = q.startsWith('ghr-') ? q : `ghr-${q}`;
+    const digitsOnly = rawQ.replace(/\D/g, '');
 
-    const found = users.find(u => {
+    const users = loadUsers();
+
+    // 1. Exact or standard tag / id / email match
+    let found = users.find(u => {
       const tag = (u.userTag || '').toLowerCase();
-      return tag === q || tag === cleanQ || (u.email && u.email.toLowerCase() === q) || u.id.toLowerCase() === q;
+      const email = (u.email || '').toLowerCase();
+      const id = (u.id || '').toLowerCase();
+      return tag === q || tag === cleanGhr || email === q || id === q;
     });
 
+    // 2. Numeric ID match (e.g. user typed "1042" or "#1042" for tag "GHR-1042")
+    if (!found && digitsOnly.length >= 3) {
+      found = users.find(u => {
+        const tagDigits = (u.userTag || '').replace(/\D/g, '');
+        return tagDigits === digitsOnly || (u.userTag || '').toLowerCase().includes(digitsOnly);
+      });
+    }
+
+    // 3. Name match (exact or partial, normalized Arabic)
+    if (!found && rawQ.length >= 2) {
+      const norm = s => (s || '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').toLowerCase().trim();
+      const normQ = norm(rawQ);
+      found = users.find(u => norm(u.name).includes(normQ));
+    }
+
     if (!found) {
-      return sendJson(res, 404, { error: 'لم يتم العثور على مستخدم بهذا المعرّف (ID)' });
+      return sendJson(res, 404, { error: 'لم يتم العثور على مستخدم بهذا المعرّف (ID)' }, req);
     }
 
     const stats = getUserPublicStats(found);
-    return sendJson(res, 200, { success: true, user: stats });
+    return sendJson(res, 200, { success: true, user: stats }, req);
+  }
+
+  // 8b. POST /api/companions/add (instant companion notification & mutual linking)
+  if (pathname === '/api/companions/add' && method === 'POST') {
+    const sessionInfo = getSessionUser(req);
+    const userId = sessionInfo ? sessionInfo.user.id : (req.headers['x-guest-id'] || 'guest_user');
+    const users = loadUsers();
+    const currentUser = sessionInfo ? sessionInfo.user : users.find(u => u.id === userId);
+
+    try {
+      const body = await readJsonBody(req);
+      const targetTagOrId = (body.targetUserTag || body.targetUserId || '').trim().toLowerCase();
+      const relation = (body.relation || 'صديق مقرب').trim();
+
+      if (!targetTagOrId) {
+        return sendJson(res, 400, { error: 'يرجى تحديد الرفيق المراد إضافته' }, req);
+      }
+
+      // Find target user by tag, id, or email
+      const targetUser = users.find(u => 
+        (u.userTag && u.userTag.toLowerCase() === targetTagOrId) ||
+        (u.id && u.id.toLowerCase() === targetTagOrId) ||
+        (u.email && u.email.toLowerCase() === targetTagOrId)
+      );
+
+      const fromUserTag = currentUser?.userTag || body.fromUserTag || 'GHR-1000';
+      const fromUserName = currentUser?.name || body.fromUserName || 'رفيق دربك';
+      const fromAvatar = currentUser?.avatar || body.fromUserAvatar || 'غ';
+      const fromUserId = currentUser?.id || userId;
+
+      // 1. Send automatic companion notification (Nudge) to the target user
+      const nudges = loadNudges();
+      const newNudge = {
+        id: 'ndg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+        type: 'companion_added',
+        fromUserId: fromUserId,
+        fromUserTag: fromUserTag,
+        fromUserName: fromUserName,
+        fromUserAvatar: fromAvatar,
+        toUserTag: targetUser ? targetUser.userTag : (body.targetUserTag || '').trim().toUpperCase(),
+        toUserId: targetUser ? targetUser.id : null,
+        toUserName: targetUser ? targetUser.name : '',
+        message: `قام ${fromUserName} بإضافتك إلى صحبته الصالحة للتنافس في القرآن وبناء العادات 🌿`,
+        createdAt: new Date().toISOString(),
+        isRead: false
+      };
+
+      nudges.push(newNudge);
+      if (nudges.length > 200) nudges.splice(0, nudges.length - 200);
+      saveNudges(nudges);
+
+      // 2. Mutual linking: If target user has state on the server, automatically add requesting user
+      if (targetUser) {
+        let targetState = loadUserState(targetUser.id);
+        if (targetState) {
+          if (!targetState.suhba) targetState.suhba = { companions: [], groups: [] };
+          if (!Array.isArray(targetState.suhba.companions)) targetState.suhba.companions = [];
+          
+          const alreadyInTarget = targetState.suhba.companions.some(c => 
+            (c.userTag && c.userTag.toUpperCase() === fromUserTag.toUpperCase()) ||
+            (c.userId && c.userId === fromUserId)
+          );
+
+          if (!alreadyInTarget) {
+            const myStats = currentUser ? getUserPublicStats(currentUser) : {};
+            targetState.suhba.companions.push({
+              id: 'comp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+              userId: fromUserId,
+              userTag: fromUserTag,
+              name: fromUserName,
+              avatar: fromAvatar,
+              relation: relation,
+              currentPage: myStats.currentPage || 1,
+              currentSurahName: myStats.currentSurahName || 'الفاتحة',
+              currentJuzName: myStats.currentJuzName || 'الجزء الأول',
+              xp: myStats.xp || 100,
+              streak: myStats.streak || 1,
+              todayDone: !!myStats.todayDone,
+              createdAt: new Date().toISOString()
+            });
+            saveUserState(targetUser.id, targetState);
+          }
+        }
+      }
+
+      return sendJson(res, 200, {
+        success: true,
+        message: 'تم إضافة الرفيق وإرسال إشعار فوري له بنجاح 🌿',
+        nudge: newNudge
+      }, req);
+
+    } catch (err) {
+      return sendJson(res, 500, { error: err.message || 'فشل إضافة الرفيق' }, req);
+    }
   }
 
   // 9. POST /api/users/stats-batch

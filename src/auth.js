@@ -90,10 +90,12 @@ async function safeApiFetch(endpoint, options = {}) {
     const fullUrl = endpoint.startsWith('http') ? endpoint : (base + endpoint);
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 6000);
+    const timeoutMs = options.timeoutMs || 20000;
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
 
+    const { timeoutMs: _, ...fetchOptions } = options;
     const res = await fetch(fullUrl, {
-      ...options,
+      ...fetchOptions,
       signal: controller.signal
     });
     clearTimeout(timer);

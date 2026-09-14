@@ -138,10 +138,11 @@ function initDailyMidnightScheduler() {
   // 2. جدولة مؤقت دقيق للحظة حلول منتصف الليل 12:00:01 AM القادمة
   scheduleNextMidnightTimer();
 
-  // 3. نبض دوري كل 30 ثانية لالتقاط اليوم الجديد فور استيقاظ الجهاز من وضع السكون
+  // 3. نبض دوري كل 30 ثانية لالتقاط اليوم الجديد وفحص إشعارات وهمسات الصحبة الواردة فورياً
   if (!_midnightHeartbeatId) {
     _midnightHeartbeatId = setInterval(() => {
       checkAndPerformDailyReset();
+      loadIncomingNudges();
     }, 30000);
   }
 
@@ -149,11 +150,13 @@ function initDailyMidnightScheduler() {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       checkAndPerformDailyReset();
+      loadIncomingNudges();
     }
   });
 
   window.addEventListener('focus', () => {
     checkAndPerformDailyReset();
+    loadIncomingNudges();
   });
 }
 
@@ -2781,9 +2784,9 @@ async function searchCompanionByTag() {
   const submitBtn = document.getElementById('comp-add-submit-btn');
 
   if (!queryEl || !resultBox) return;
-  const q = queryEl.value.trim();
+  const rawQ = queryEl.value.trim();
 
-  if (!q) {
+  if (!rawQ) {
     resultBox.innerHTML = `<div style="background:#FDF3E7;color:#B88E4F;padding:10px;border-radius:12px;font-size:0.8125rem;text-align:center">يرجى كتابة معرّف أو كود الرفيق للبحث</div>`;
     return;
   }
@@ -2791,15 +2794,22 @@ async function searchCompanionByTag() {
   resultBox.innerHTML = `
     <div style="text-align:center;padding:14px;color:var(--text-secondary);font-size:0.85rem">
       <div style="display:inline-block;animation:spin 1s linear infinite;font-size:1.4rem">⏳</div>
-      <div>جاري البحث عن الرفيق بالـ ID...</div>
+      <div style="margin-top:4px">جاري البحث عن الرفيق بالـ ID أو الاسم...</div>
     </div>
   `;
 
   try {
     let foundUser = null;
     const apiBase = Auth.getApiBaseUrl();
+
+    // 1. Try server API search with 15s timeout
     try {
-      const res = await fetch(`${apiBase}/api/users/lookup?query=${encodeURIComponent(q)}`);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15000);
+      const res = await fetch(`${apiBase}/api/users/lookup?query=${encodeURIComponent(rawQ)}`, {
+        signal: controller.signal
+      });
+      clearTimeout(timer);
       const ct = res.headers.get('content-type') || '';
       if (res.ok && ct.includes('json')) {
         const data = await res.json();
@@ -2809,9 +2819,12 @@ async function searchCompanionByTag() {
       }
     } catch (e) {}
 
-    // Fallback: check local storage users and pre-built companions
+    // 2. Fallback: check local storage users and pre-built companions
     if (!foundUser) {
       const MOCK_COMPANIONS = [
+        { id: 'usr_demo_omar', userTag: 'GHR-1042', name: 'عمر الفاروق', avatar: 'ع', currentPage: 124, currentSurahName: 'المائدة', currentJuzName: 'الجزء السادس', xp: 450, streak: 12, todayDone: true },
+        { id: 'usr_demo_abdullah', userTag: 'GHR-2085', name: 'عبدالله بن مسعود', avatar: 'ع', currentPage: 280, currentSurahName: 'الإسراء', currentJuzName: 'الجزء الخامس عشر', xp: 890, streak: 30, todayDone: true },
+        { id: 'usr_demo_saad', userTag: 'GHR-3721', name: 'سعد بن معاذ', avatar: 'س', currentPage: 45, currentSurahName: 'البقرة', currentJuzName: 'الجزء الثالث', xp: 620, streak: 19, todayDone: true },
         { id: 'usr_mock_1', userTag: 'عمر#1042', name: 'عمر الفاروق', avatar: 'ع', currentPage: 124, currentSurahName: 'المائدة', currentJuzName: 'الجزء السادس', xp: 450, streak: 12, todayDone: true },
         { id: 'usr_mock_2', userTag: 'فاطمة#3819', name: 'فاطمة الزهراء', avatar: 'ف', currentPage: 45, currentSurahName: 'البقرة', currentJuzName: 'الجزء الثالث', xp: 620, streak: 19, todayDone: true },
         { id: 'usr_mock_3', userTag: 'عبدالله#7721', name: 'عبدالله بن مسعود', avatar: 'ع', currentPage: 280, currentSurahName: 'الإسراء', currentJuzName: 'الجزء الخامس عشر', xp: 890, streak: 30, todayDone: true },
@@ -2822,19 +2835,32 @@ async function searchCompanionByTag() {
         localUsers = JSON.parse(localStorage.getItem('ghiras_local_users_db') || '[]');
       } catch (e) {}
       const allCandidates = [...MOCK_COMPANIONS, ...localUsers];
-      const qLower = q.toLowerCase();
-      foundUser = allCandidates.find(u => 
-        (u.userTag && u.userTag.toLowerCase() === qLower) ||
-        (u.name && u.name.toLowerCase().includes(qLower)) ||
-        (u.email && u.email.toLowerCase() === qLower)
-      );
+      const qLower = rawQ.toLowerCase();
+      const qDigits = rawQ.replace(/\D/g, '');
+
+      foundUser = allCandidates.find(u => {
+        const uTag = (u.userTag || '').toLowerCase();
+        const uTagDigits = uTag.replace(/\D/g, '');
+        const uName = (u.name || '').toLowerCase();
+        const uEmail = (u.email || '').toLowerCase();
+        const uId = (u.id || '').toLowerCase();
+
+        return (
+          uTag === qLower ||
+          uTag === `ghr-${qLower}` ||
+          (qDigits.length >= 3 && uTagDigits === qDigits) ||
+          uName.includes(qLower) ||
+          uEmail === qLower ||
+          uId === qLower
+        );
+      });
     }
 
     if (!foundUser) {
       resultBox.innerHTML = `
         <div style="background:#FDF3E7;border:1px solid rgba(184,142,79,0.3);color:#B88E4F;padding:12px;border-radius:14px;font-size:0.85rem;text-align:center;line-height:1.7">
-          ⚠️ لم يتم العثور على مستخدم بهذا المعرّف.<br>
-          <span style="font-size:0.75rem;color:var(--text-secondary)">جرّب البحث بأحد الرفقاء المقترحين مثل (عمر#1042 أو فاطمة#3819 أو عبدالله#7721)</span>
+          ⚠️ لم يتم العثور على مستخدم بالمعرّف "<strong>${rawQ}</strong>".<br>
+          <span style="font-size:0.75rem;color:var(--text-secondary)">تأكد أن صديقك قام بنسخ المعرّف من شاشة الصحبة (مثال: GHR-1042 أو فقط الأرقام 1042 أو بريده).</span>
         </div>
       `;
       _lastFoundCompanion = null;
@@ -2900,18 +2926,20 @@ function submitAddFoundCompanion() {
 
   const relEl = document.getElementById('comp-rel-select');
   const relation = relEl ? relEl.value : 'رفيق درب';
+  const comp = _lastFoundCompanion;
 
+  // 1. Add locally to current user's companions list
   State.addCompanion({
-    userId: _lastFoundCompanion.id,
-    userTag: _lastFoundCompanion.userTag,
-    name: _lastFoundCompanion.name,
-    avatar: _lastFoundCompanion.avatar,
-    currentPage: _lastFoundCompanion.currentPage,
-    currentSurahName: _lastFoundCompanion.currentSurahName,
-    currentJuzName: _lastFoundCompanion.currentJuzName,
-    xp: _lastFoundCompanion.xp,
-    streak: _lastFoundCompanion.streak,
-    todayDone: _lastFoundCompanion.todayDone,
+    userId: comp.id,
+    userTag: comp.userTag,
+    name: comp.name,
+    avatar: comp.avatar,
+    currentPage: comp.currentPage,
+    currentSurahName: comp.currentSurahName,
+    currentJuzName: comp.currentJuzName,
+    xp: comp.xp,
+    streak: comp.streak,
+    todayDone: comp.todayDone,
     relation: relation
   });
 
@@ -2919,7 +2947,39 @@ function submitAddFoundCompanion() {
   if (_currentScreen === 'suhba') {
     navigate('suhba');
   }
-  State.showToast(`🌿 تم إضافة ${_lastFoundCompanion.name} إلى صحبتك الصالحة!`);
+  State.showToast(`🌿 تم إضافة ${comp.name} إلى صحبتك الصالحة!`);
+
+  // 2. Notify the server and send an instant notification to the friend so HE RECEIVES IT!
+  const currentUser = Auth.getCurrentUser();
+  const token = Auth.getToken();
+  const apiBase = Auth.getApiBaseUrl();
+  const myTag = State.getUserTag() || currentUser?.userTag || 'GHR-1000';
+  const myName = currentUser?.name || State.get().user.name || 'رفيق دربك';
+  const myAvatar = currentUser?.avatar || State.get().user.avatar || 'غ';
+
+  fetch(`${apiBase}/api/companions/add`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': token ? `Bearer ${token}` : '',
+      'x-guest-id': currentUser ? currentUser.id : 'guest_user'
+    },
+    body: JSON.stringify({
+      targetUserTag: comp.userTag,
+      targetUserId: comp.id,
+      fromUserTag: myTag,
+      fromUserName: myName,
+      fromUserAvatar: myAvatar,
+      relation: relation
+    })
+  }).then(r => r.json()).then(data => {
+    if (data.success) {
+      State.showToast(`🕊️ تم إشعار ${comp.name} بأنك أضفته إلى صحبتك!`);
+    }
+  }).catch(() => {});
+
+  // 3. Save / Sync state
+  Auth.syncState(State.get());
   _lastFoundCompanion = null;
 }
 
@@ -3479,6 +3539,8 @@ async function submitSendNudge(toUserTag, toUserName) {
   }
 }
 
+const _notifiedNudgeIds = new Set();
+
 async function loadIncomingNudges() {
   const currentUser = Auth.getCurrentUser();
   const token = Auth.getToken();
@@ -3500,9 +3562,63 @@ async function loadIncomingNudges() {
           if (!s.suhba) s.suhba = { companions: [], groups: [] };
           s.suhba.incomingNudges = data.nudges;
         });
+
+        // Instant alert when a companion adds me!
+        for (const n of data.nudges) {
+          if (n.type === 'companion_added' && !_notifiedNudgeIds.has(n.id)) {
+            _notifiedNudgeIds.add(n.id);
+            const s = State.get();
+            const alreadyIn = (s.suhba?.companions || []).some(c => 
+              (c.userTag && c.userTag.toUpperCase() === n.fromUserTag?.toUpperCase()) ||
+              (c.userId && c.userId === n.fromUserId)
+            );
+            if (!alreadyIn && n.fromUserName) {
+              State.addCompanion({
+                userId: n.fromUserId,
+                userTag: n.fromUserTag,
+                name: n.fromUserName,
+                avatar: n.fromUserAvatar || 'غ',
+                relation: 'صديق مقرب'
+              });
+            }
+            State.showToast(`🌿 ${n.message || `قام ${n.fromUserName} بإضافتك إلى صحبته الصالحة!`}`);
+          }
+        }
       }
     }
   } catch(e) {}
+}
+
+async function acceptOrAddCompanionBack(tag, name, userId, avatar) {
+  let friendData = null;
+  const apiBase = Auth.getApiBaseUrl();
+  try {
+    const res = await fetch(`${apiBase}/api/users/lookup?query=${encodeURIComponent(tag || userId || '')}`);
+    const ct = res.headers.get('content-type') || '';
+    if (res.ok && ct.includes('json')) {
+      const d = await res.json();
+      if (d.success && d.user) friendData = d.user;
+    }
+  } catch(e) {}
+
+  State.addCompanion({
+    userId: userId || friendData?.id,
+    userTag: tag || friendData?.userTag,
+    name: name || friendData?.name,
+    avatar: avatar || friendData?.avatar || (name ? name.charAt(0) : 'غ'),
+    currentPage: friendData?.currentPage || 1,
+    currentSurahName: friendData?.currentSurahName || 'الفاتحة',
+    currentJuzName: friendData?.currentJuzName || 'الجزء الأول',
+    xp: friendData?.xp || 100,
+    streak: friendData?.streak || 1,
+    todayDone: !!friendData?.todayDone,
+    relation: 'صديق مقرب'
+  });
+
+  replyThanksNudge(tag, name);
+  State.showToast(`🌿 تم إضافة ${name} إلى صحبتك الصالحة بنجاح!`);
+  Auth.syncState(State.get());
+  if (_currentScreen === 'suhba') navigate('suhba');
 }
 
 async function replyThanksNudge(toUserTag, toUserName) {
@@ -3784,6 +3900,7 @@ window.App = {
   openSendNudgeModal,
   submitSendNudge,
   loadIncomingNudges,
+  acceptOrAddCompanionBack,
   replyThanksNudge,
   clearAllNudges,
   inviteFriend,

@@ -132,12 +132,22 @@ export function renderSuhba() {
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:6px">
-            <button onclick="App.replyThanksNudge('${nudge.fromUserTag}', '${nudge.fromUserName}')" class="btn btn--sm" style="background:rgba(184,142,79,0.15);color:var(--color-gold-dark);padding:5px 12px;font-size:0.75rem;border-radius:var(--radius-full);border:1px solid rgba(184,142,79,0.3);cursor:pointer;font-weight:600">
-              <span>جزاك الله خيراً 🤲</span>
-            </button>
-            <button onclick="App.openWird()" class="btn btn--sm btn--primary" style="padding:5px 12px;font-size:0.75rem;border-radius:var(--radius-full);cursor:pointer;font-weight:600">
-              <span>قراءة الورد 📖</span>
-            </button>
+            ${nudge.type === 'companion_added' ? `
+              <button onclick="App.acceptOrAddCompanionBack('${nudge.fromUserTag}', '${nudge.fromUserName}', '${nudge.fromUserId || ''}', '${nudge.fromUserAvatar || ''}')" class="btn btn--sm btn--primary" style="padding:5px 12px;font-size:0.75rem;border-radius:var(--radius-full);cursor:pointer;font-weight:700;display:inline-flex;align-items:center;gap:4px">
+                <span class="material-symbols-outlined" style="font-size:0.9rem">person_add</span>
+                <span>إضافة لصحبتي أيضاً 🤝</span>
+              </button>
+              <button onclick="App.replyThanksNudge('${nudge.fromUserTag}', '${nudge.fromUserName}')" class="btn btn--sm" style="background:rgba(184,142,79,0.15);color:var(--color-gold-dark);padding:5px 12px;font-size:0.75rem;border-radius:var(--radius-full);border:1px solid rgba(184,142,79,0.3);cursor:pointer;font-weight:600">
+                <span>جزاك الله خيراً 🤲</span>
+              </button>
+            ` : `
+              <button onclick="App.replyThanksNudge('${nudge.fromUserTag}', '${nudge.fromUserName}')" class="btn btn--sm" style="background:rgba(184,142,79,0.15);color:var(--color-gold-dark);padding:5px 12px;font-size:0.75rem;border-radius:var(--radius-full);border:1px solid rgba(184,142,79,0.3);cursor:pointer;font-weight:600">
+                <span>جزاك الله خيراً 🤲</span>
+              </button>
+              <button onclick="App.openWird()" class="btn btn--sm btn--primary" style="padding:5px 12px;font-size:0.75rem;border-radius:var(--radius-full);cursor:pointer;font-weight:600">
+                <span>قراءة الورد 📖</span>
+              </button>
+            `}
           </div>
         </div>
       `).join('')}
