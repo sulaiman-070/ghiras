@@ -122,6 +122,84 @@ async function boot() {
 
   // Initialize Touch Gestures & Keyboard Navigation for Mushaf
   initMushafGestureHandlers();
+
+  // Initialize Daily Midnight (12:00 AM) Reset Scheduler
+  initDailyMidnightScheduler();
+}
+
+// ── Daily Midnight Reset Scheduler (كل 24 ساعة عند 12:00 AM) ──
+let _midnightTimerId = null;
+let _midnightHeartbeatId = null;
+
+function initDailyMidnightScheduler() {
+  // 1. التحقق اللحظي عند إقلاع التطبيق
+  checkAndPerformDailyReset();
+
+  // 2. جدولة مؤقت دقيق للحظة حلول منتصف الليل 12:00:01 AM القادمة
+  scheduleNextMidnightTimer();
+
+  // 3. نبض دوري كل 30 ثانية لالتقاط اليوم الجديد فور استيقاظ الجهاز من وضع السكون
+  if (!_midnightHeartbeatId) {
+    _midnightHeartbeatId = setInterval(() => {
+      checkAndPerformDailyReset();
+    }, 30000);
+  }
+
+  // 4. عند عودة المستخدم للتطبيق أو إلغاء قفل شاشة الهاتف
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      checkAndPerformDailyReset();
+    }
+  });
+
+  window.addEventListener('focus', () => {
+    checkAndPerformDailyReset();
+  });
+}
+
+function scheduleNextMidnightTimer() {
+  if (_midnightTimerId) clearTimeout(_midnightTimerId);
+
+  const now = new Date();
+  const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1, 0);
+  const msUntilMidnight = Math.max(1000, nextMidnight.getTime() - now.getTime());
+
+  _midnightTimerId = setTimeout(() => {
+    checkAndPerformDailyReset(true);
+    scheduleNextMidnightTimer();
+  }, msUntilMidnight);
+}
+
+function checkAndPerformDailyReset(isExactMidnight = false) {
+  const didReset = State.checkDailyReset();
+  if (didReset) {
+    console.log('GHIRAS: تم تصفير الأذكار والورد تلقائياً لليوم الجديد (12:00 AM)');
+
+    // تحديث واجهة الأذكار فوراً إذا كان المستخدم داخلها
+    const athkarTab = document.getElementById('wird-athkar-tab');
+    if (athkarTab && _currentScreen === 'wird') {
+      athkarTab.innerHTML = renderAthkarTabContent();
+    }
+
+    // تحديث الشاشة الحالية إذا كانت الرئيسية ليعكس الورد الجديد
+    if (_currentScreen === 'home') {
+      const container = document.getElementById('screen-container');
+      if (container) {
+        container.innerHTML = `
+          <div class="screen active" id="screen-home" role="tabpanel">
+            ${renderHome()}
+          </div>
+        `;
+      }
+    }
+
+    updateHeader();
+    updateNavBadges();
+
+    if (isExactMidnight) {
+      State.showToast('🌙 بداية يوم جديد مبارك (١٢:٠٠ ص) — تم تجديد وتصفير الأذكار والورد اليومي ✨');
+    }
+  }
 }
 
 let _mushafGesturesBound = false;
@@ -703,7 +781,10 @@ function switchWirdTab(tab) {
     }
   } else {
     if (quranTab) quranTab.style.display = 'none';
-    if (athkarTab) athkarTab.style.display = '';
+    if (athkarTab) {
+      athkarTab.style.display = '';
+      athkarTab.innerHTML = renderAthkarTabContent();
+    }
     if (btnAthkar) {
       btnAthkar.style.background = 'var(--color-primary)';
       btnAthkar.style.color      = 'var(--text-inverted)';
@@ -1597,6 +1678,15 @@ function resetThikr(thikrId) {
   }
 
   State.showToast('🔄 تم تصفير العدّاد');
+}
+
+function resetAllAthkar() {
+  State.resetAllAthkar();
+  const athkarTab = document.getElementById('wird-athkar-tab');
+  if (athkarTab) {
+    athkarTab.innerHTML = renderAthkarTabContent();
+  }
+  State.showToast('🔄 تم تصفير جميع عدّادات الأذكار بنجاح');
 }
 
 function copyThikr(thikrId) {
@@ -3631,9 +3721,14 @@ window.App = {
   clearAthkarSearch,
   countThikr,
   resetThikr,
+  resetAllAthkar,
   copyThikr,
   completeAthkar,
   openAthkarCategory,
+  simulateMidnightReset: () => {
+    State.simulateMidnightReset();
+    checkAndPerformDailyReset(true);
+  },
   // Garden
   waterGarden,
   shareGarden,

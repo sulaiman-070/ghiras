@@ -627,11 +627,17 @@ export function renderAthkarTabContent() {
             ${n(displayItems.length)} ذكر ودعاء
           </span>
         </div>
-        ${!isSearchActive && activeCatMeta.badge ? `
-          <span style="font-size:0.75rem;color:var(--text-muted);font-weight:600">
-            ${activeCatMeta.badge}
-          </span>
-        ` : ''}
+        <div style="display:flex;align-items:center;gap:6px">
+          ${!isSearchActive && activeCatMeta.badge ? `
+            <span style="font-size:0.72rem;color:var(--text-muted);font-weight:600">
+              ${activeCatMeta.badge}
+            </span>
+          ` : ''}
+          <div style="display:flex;align-items:center;gap:4px;background:rgba(184,142,79,0.08);border:1px solid rgba(184,142,79,0.2);padding:3px 9px;border-radius:var(--radius-full);font-size:0.72rem;color:var(--color-gold-dark, #8A6D3B);font-weight:600" title="النظام يقوم بتصفير وتجديد جميع العدادات تلقائياً كل 24 ساعة عند منتصف الليل 12:00 AM">
+            <span class="material-symbols-outlined" style="font-size:0.9rem;color:var(--color-gold)">autorenew</span>
+            <span>تتجدد تلقائياً كل ٢٤ ساعة (١٢ ص)</span>
+          </div>
+        </div>
       </div>
 
       <!-- 6. List of Dhikr & Dua Cards -->

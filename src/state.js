@@ -146,6 +146,8 @@ function createDefaultState(userName, avatar) {
       activeTab: 'home',
       lastActiveDate: getTodayKey(),
     },
+    athkarCounters: {},
+    athkarLastResetDate: getTodayKey(),
     _todayKey: getTodayKey(),
   };
 }
@@ -213,7 +215,7 @@ function load(user, remoteState) {
       _state = deepMerge(createDefaultState(activeUser?.name, activeUser?.avatar), remoteState);
     } else {
       const key = getStorageKey(activeUser);
-      const raw = localStorage.getItem(key);
+      const raw = (typeof localStorage !== 'undefined') ? localStorage.getItem(key) : null;
       if (raw) {
         const saved = JSON.parse(raw);
         _state = deepMerge(createDefaultState(activeUser?.name, activeUser?.avatar), saved);
@@ -236,7 +238,9 @@ function load(user, remoteState) {
 function save() {
   try {
     const key = getStorageKey();
-    localStorage.setItem(key, JSON.stringify(_state));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, JSON.stringify(_state));
+    }
     scheduleServerSync();
   } catch (e) {
     console.warn('Ghiras: state save failed', e);
@@ -257,12 +261,20 @@ function clearUserState() {
 }
 
 function get() {
-  if (!_state) load();
+  if (!_state) {
+    load();
+  } else {
+    checkDailyReset();
+  }
   return _state;
 }
 
 function set(updater) {
-  if (!_state) load();
+  if (!_state) {
+    load();
+  } else {
+    checkDailyReset();
+  }
   if (typeof updater === 'function') {
     updater(_state);
   } else {
@@ -288,20 +300,38 @@ function notify() {
   });
 }
 
-// ── Daily Reset ──────────────────────────────────────────────
+// ── Daily Reset (كل 24 ساعة عند منتصف الليل 12:00 AM) ─────────────
 function checkDailyReset() {
+  if (!_state) return false;
   const today = getTodayKey();
-  if (_state._todayKey !== today) {
-    // New day — reset today statuses
-    _state.habits.forEach(h => {
-      h.todayStatus = 'pending';
-      h.minGoalDone = false;
-      h.extraGoalDone = false;
-    });
-    _state.quranProgress.todayAyahsRead = 0;
-    _state.quranProgress.todayPages = 0;
-    _state.quranProgress.todayStatus = 'pending';
-    _state.quranProgress.todayKey = today;
+  let didReset = false;
+
+  // فحص ما إذا بدأ يوم جديد أو لم يتم تصفير الأذكار لليوم الحالي
+  if (_state._todayKey !== today || _state.athkarLastResetDate !== today) {
+    didReset = true;
+
+    // 1. تصفير جميع عدّادات الأذكار الفردية بالكامل
+    _state.athkarCounters = {};
+    _state.athkarLastResetDate = today;
+
+    // 2. تصفير إنجاز عادات اليوم (أذكار الصباح والمساء والقرآن والتدبر)
+    if (Array.isArray(_state.habits)) {
+      _state.habits.forEach(h => {
+        h.todayStatus = 'pending';
+        h.minGoalDone = false;
+        h.extraGoalDone = false;
+      });
+    }
+
+    // 3. تصفير قراءة القرآن لليوم الجديد
+    if (_state.quranProgress) {
+      _state.quranProgress.todayAyahsRead = 0;
+      _state.quranProgress.todayPages = 0;
+      _state.quranProgress.todayStatus = 'pending';
+      _state.quranProgress.todayKey = today;
+    }
+
+    // 4. تصفير صلوات خطة الختمة لليوم الجديد
     if (_state.khatmaPlan) {
       _state.khatmaPlan.prayersDone = {
         fajr: false,
@@ -313,9 +343,7 @@ function checkDailyReset() {
       _state.khatmaPlan.todayKey = today;
     }
 
-    // Compassionate Garden check:
-    // If yesterday was missed and user had an active streak, don't wipe it out!
-    // Set isThirsty = true so the user can easily recover without guilt!
+    // 5. حديقة الغراس الرحيمة (الحفاظ على السلسلة ومنح فرصة الاستدراك)
     const yesterday = getYesterdayKey();
     if (_state.garden && _state.garden.streakDays > 0) {
       if (_state.garden.lastCompletedDate !== yesterday && _state.garden.lastCompletedDate !== today) {
@@ -324,9 +352,31 @@ function checkDailyReset() {
     }
 
     _state._todayKey = today;
-    _state.ui.lastActiveDate = today;
+    if (_state.ui) {
+      _state.ui.lastActiveDate = today;
+    }
+
     save();
+    notify();
   }
+
+  return didReset;
+}
+
+function resetAllAthkar() {
+  set(s => {
+    s.athkarCounters = {};
+    s.athkarLastResetDate = getTodayKey();
+  });
+}
+
+function simulateMidnightReset() {
+  set(s => {
+    s._todayKey = 'SIMULATED_YESTERDAY';
+    s.athkarLastResetDate = 'SIMULATED_YESTERDAY';
+  });
+  checkDailyReset();
+  showToast('🌙 تمت محاكاة حلول الساعة 12:00 AM منتصف الليل وتصفير الأذكار بنجاح ✨');
 }
 
 // ── Actions ──────────────────────────────────────────────────
@@ -808,7 +858,9 @@ function markReminderTriggered(id, dateStr) {
 // ── Reset (Dev) ──────────────────────────────────────────────
 function resetState() {
   const key = getStorageKey();
-  localStorage.removeItem(key);
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem(key);
+  }
   const activeUser = Auth.getCurrentUser();
   _state = createDefaultState(activeUser?.name, activeUser?.avatar);
   save();
@@ -1130,7 +1182,10 @@ export const State = {
   getGraceTokens,
   getDaysUntilNextGraceToken,
   isGardenThirsty,
-  // Dev
+  // Dev & Daily Reset
+  checkDailyReset,
+  resetAllAthkar,
+  simulateMidnightReset,
   resetState,
   toArabicNum,
 };
