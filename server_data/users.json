@@ -1,0 +1,58 @@
+[
+  {
+    "id": "usr_demo_omar",
+    "userTag": "GHR-1042",
+    "name": "عمر الفاروق",
+    "avatar": "ع",
+    "email": "omar@ghiras.app",
+    "salt": "salt1",
+    "passwordHash": "hash1",
+    "createdAt": "2026-09-12T19:56:35.752Z"
+  },
+  {
+    "id": "usr_demo_abdullah",
+    "userTag": "GHR-2085",
+    "name": "عبدالله بن مسعود",
+    "avatar": "ع",
+    "email": "abdullah@ghiras.app",
+    "salt": "salt2",
+    "passwordHash": "hash2",
+    "createdAt": "2026-09-12T19:56:35.753Z"
+  },
+  {
+    "id": "usr_demo_saad",
+    "userTag": "GHR-3721",
+    "name": "سعد بن معاذ",
+    "avatar": "س",
+    "email": "saad@ghiras.app",
+    "salt": "salt3",
+    "passwordHash": "hash3",
+    "createdAt": "2026-09-12T19:56:35.753Z"
+  },
+  {
+    "id": "usr_ghr_2872",
+    "userTag": "GHR-2872",
+    "name": "رفيق غراس",
+    "avatar": "غ",
+    "email": "user2872@ghiras.app",
+    "salt": "salt2872",
+    "passwordHash": "hash2872",
+    "createdAt": "2026-09-14T20:00:00.000Z"
+  },
+  {
+    "id": "usr_ghr_9999",
+    "userTag": "GHR-9999",
+    "name": "رفيق غراس (9999)",
+    "avatar": "غ",
+    "email": "user9999@ghiras.app",
+    "createdAt": "2026-09-14T19:45:07.740Z"
+  },
+  {
+    "id": "usr_ghr_5566",
+    "userTag": "GHR-5566",
+    "name": "رفيق غراس (5566)",
+    "avatar": "غ",
+    "email": "user5566@ghiras.app",
+    "createdAt": "2026-09-14T19:48:51.538Z"
+  }
+]

@@ -934,8 +934,20 @@ function getUserTag() {
   const s = get();
   if (s.user && s.user.userTag) return s.user.userTag;
   const user = Auth.getCurrentUser();
-  if (user && user.userTag) return user.userTag;
-  return 'GHR-1024';
+  if (user && user.userTag) {
+    if (s.user) s.user.userTag = user.userTag;
+    return user.userTag;
+  }
+  let savedTag = localStorage.getItem('ghiras_device_usertag');
+  if (!savedTag) {
+    const num = Math.floor(1000 + Math.random() * 9000);
+    savedTag = `GHR-${num}`;
+    localStorage.setItem('ghiras_device_usertag', savedTag);
+  }
+  if (s.user && !s.user.userTag) {
+    s.user.userTag = savedTag;
+  }
+  return savedTag;
 }
 
 function addCompanion(data) {

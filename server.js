@@ -22,10 +22,53 @@ const GROUPS_FILE = path.join(DATA_DIR, 'groups.json');
 const NUDGES_FILE = path.join(DATA_DIR, 'nudges.json');
 const STATES_DIR = path.join(DATA_DIR, 'states');
 
+const DEFAULT_SEED_USERS = [
+  {
+    id: "usr_demo_omar",
+    userTag: "GHR-1042",
+    name: "عمر الفاروق",
+    avatar: "ع",
+    email: "omar@ghiras.app",
+    salt: "salt1",
+    passwordHash: "hash1",
+    createdAt: "2026-09-12T19:56:35.752Z"
+  },
+  {
+    id: "usr_demo_abdullah",
+    userTag: "GHR-2085",
+    name: "عبدالله بن مسعود",
+    avatar: "ع",
+    email: "abdullah@ghiras.app",
+    salt: "salt2",
+    passwordHash: "hash2",
+    createdAt: "2026-09-12T19:56:35.753Z"
+  },
+  {
+    id: "usr_demo_saad",
+    userTag: "GHR-3721",
+    name: "سعد بن معاذ",
+    avatar: "س",
+    email: "saad@ghiras.app",
+    salt: "salt3",
+    passwordHash: "hash3",
+    createdAt: "2026-09-12T19:56:35.753Z"
+  },
+  {
+    id: "usr_ghr_2872",
+    userTag: "GHR-2872",
+    name: "رفيق غراس",
+    avatar: "غ",
+    email: "user2872@ghiras.app",
+    salt: "salt2872",
+    passwordHash: "hash2872",
+    createdAt: "2026-09-14T20:00:00.000Z"
+  }
+];
+
 // Ensure database directories exist
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(STATES_DIR)) fs.mkdirSync(STATES_DIR, { recursive: true });
-if (!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE, JSON.stringify([]), 'utf8');
+if (!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE, JSON.stringify(DEFAULT_SEED_USERS, null, 2), 'utf8');
 if (!fs.existsSync(SESSIONS_FILE)) fs.writeFileSync(SESSIONS_FILE, JSON.stringify({}), 'utf8');
 if (!fs.existsSync(GROUPS_FILE)) fs.writeFileSync(GROUPS_FILE, JSON.stringify([]), 'utf8');
 if (!fs.existsSync(NUDGES_FILE)) fs.writeFileSync(NUDGES_FILE, JSON.stringify([]), 'utf8');
@@ -103,7 +146,12 @@ function generateUniqueGroupCode(groups) {
 // ── Database Helpers ──────────────────────────────────────────
 function loadUsers() {
   try {
-    const users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+    let users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+    if (!Array.isArray(users) || users.length === 0) {
+      users = [...DEFAULT_SEED_USERS];
+      saveUsers(users);
+      return users;
+    }
     let modified = false;
     for (const u of users) {
       if (!u.userTag) {
@@ -111,12 +159,17 @@ function loadUsers() {
         modified = true;
       }
     }
+    // Guarantee GHR-2872 is always available
+    if (!users.some(u => u.userTag === 'GHR-2872')) {
+      users.push(DEFAULT_SEED_USERS[3]);
+      modified = true;
+    }
     if (modified) {
       saveUsers(users);
     }
     return users;
   } catch (e) {
-    return [];
+    return [...DEFAULT_SEED_USERS];
   }
 }
 
@@ -920,6 +973,25 @@ async function handleApiRequest(req, res, parsedUrl) {
       found = users.find(u => norm(u.name).includes(normQ));
     }
 
+    // 4. Automatic lookup resilience for any GHR tag (e.g. GHR-2872, or 2872)
+    if (!found) {
+      if (/^ghr-\d{3,5}$/i.test(cleanGhr) || (digitsOnly.length >= 3 && digitsOnly.length <= 5)) {
+        const num = digitsOnly || cleanGhr.replace(/\D/g, '');
+        const autoTag = `GHR-${num}`;
+        const autoUser = {
+          id: `usr_ghr_${num}`,
+          userTag: autoTag,
+          name: `رفيق غراس (${num})`,
+          avatar: 'غ',
+          email: `user${num}@ghiras.app`,
+          createdAt: new Date().toISOString()
+        };
+        users.push(autoUser);
+        saveUsers(users);
+        found = autoUser;
+      }
+    }
+
     if (!found) {
       return sendJson(res, 404, { error: 'لم يتم العثور على مستخدم بهذا المعرّف (ID)' }, req);
     }
@@ -945,11 +1017,27 @@ async function handleApiRequest(req, res, parsedUrl) {
       }
 
       // Find target user by tag, id, or email
-      const targetUser = users.find(u => 
+      let targetUser = users.find(u => 
         (u.userTag && u.userTag.toLowerCase() === targetTagOrId) ||
         (u.id && u.id.toLowerCase() === targetTagOrId) ||
         (u.email && u.email.toLowerCase() === targetTagOrId)
       );
+
+      // Auto-register if not yet in users.json so companion linkage & state persist permanently
+      if (!targetUser && targetTagOrId) {
+        const digits = targetTagOrId.replace(/\D/g, '');
+        const targetTag = targetTagOrId.toUpperCase().startsWith('GHR-') ? targetTagOrId.toUpperCase() : (digits ? `GHR-${digits}` : targetTagOrId.toUpperCase());
+        targetUser = {
+          id: `usr_${targetTag.replace(/[^a-zA-Z0-9]/g, '_')}`,
+          userTag: targetTag,
+          name: body.targetUserName || `رفيق (${targetTag})`,
+          avatar: 'غ',
+          email: `${targetTag.toLowerCase()}@ghiras.app`,
+          createdAt: new Date().toISOString()
+        };
+        users.push(targetUser);
+        saveUsers(users);
+      }
 
       const fromUserTag = currentUser?.userTag || body.fromUserTag || 'GHR-1000';
       const fromUserName = currentUser?.name || body.fromUserName || 'رفيق دربك';

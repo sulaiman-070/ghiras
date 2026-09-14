@@ -2739,14 +2739,14 @@ async function openAddCompanionByIdModal() {
       <div style="margin-bottom:var(--space-3)">
         <label style="display:block;font-size:0.8125rem;font-weight:700;color:var(--text-primary);margin-bottom:6px">معرّف الرفيق (User ID أو البريد):</label>
         <div style="display:flex;gap:8px">
-          <input type="text" id="comp-search-query" class="form-input" placeholder="مثال: GHR-1042 أو 1042 أو البريد..." style="flex:1;direction:ltr;text-align:right" autofocus onkeydown="if(event.key==='Enter')App.searchCompanionByTag()">
+          <input type="text" id="comp-search-query" class="form-input" placeholder="مثال: GHR-2872 أو GHR-1042 أو 2872..." style="flex:1;direction:ltr;text-align:right" autofocus onkeydown="if(event.key==='Enter')App.searchCompanionByTag()" oninput="App.debouncedCompanionSearch(this.value)">
           <button type="button" onclick="App.searchCompanionByTag()" class="btn btn--primary" style="padding:0 16px;white-space:nowrap;font-weight:700">
             <span>بحث</span>
             <span class="material-symbols-outlined" style="font-size:1.1rem">search</span>
           </button>
         </div>
         <div style="font-size:0.75rem;color:var(--text-muted);margin-top:6px">
-          💡 جرّب إضافة: <button type="button" onclick="document.getElementById('comp-search-query').value='GHR-1042';App.searchCompanionByTag()" style="background:none;border:none;color:var(--color-gold-dark);font-weight:700;cursor:pointer;padding:0;text-decoration:underline">عمر (GHR-1042)</button> أو <button type="button" onclick="document.getElementById('comp-search-query').value='GHR-2085';App.searchCompanionByTag()" style="background:none;border:none;color:var(--color-gold-dark);font-weight:700;cursor:pointer;padding:0;text-decoration:underline">عبدالله (GHR-2085)</button>
+          💡 جرّب إضافة: <button type="button" onclick="document.getElementById('comp-search-query').value='GHR-2872';App.searchCompanionByTag()" style="background:none;border:none;color:var(--color-gold-dark);font-weight:700;cursor:pointer;padding:0;text-decoration:underline">رفيقك (GHR-2872)</button> أو <button type="button" onclick="document.getElementById('comp-search-query').value='GHR-1042';App.searchCompanionByTag()" style="background:none;border:none;color:var(--color-gold-dark);font-weight:700;cursor:pointer;padding:0;text-decoration:underline">عمر (GHR-1042)</button>
         </div>
       </div>
 
@@ -2775,6 +2775,17 @@ async function openAddCompanionByIdModal() {
       </div>
     </div>
   `);
+}
+
+let _compSearchTimer = null;
+function debouncedCompanionSearch(val) {
+  clearTimeout(_compSearchTimer);
+  const q = (val || '').trim();
+  if (q.length >= 4) {
+    _compSearchTimer = setTimeout(() => {
+      searchCompanionByTag();
+    }, 450);
+  }
 }
 
 async function searchCompanionByTag() {
@@ -2822,6 +2833,7 @@ async function searchCompanionByTag() {
     // 2. Fallback: check local storage users and pre-built companions
     if (!foundUser) {
       const MOCK_COMPANIONS = [
+        { id: 'usr_ghr_2872', userTag: 'GHR-2872', name: 'رفيق غراس', avatar: 'غ', currentPage: 1, currentSurahName: 'الفاتحة', currentJuzName: 'الجزء الأول', xp: 150, streak: 1, todayDone: true },
         { id: 'usr_demo_omar', userTag: 'GHR-1042', name: 'عمر الفاروق', avatar: 'ع', currentPage: 124, currentSurahName: 'المائدة', currentJuzName: 'الجزء السادس', xp: 450, streak: 12, todayDone: true },
         { id: 'usr_demo_abdullah', userTag: 'GHR-2085', name: 'عبدالله بن مسعود', avatar: 'ع', currentPage: 280, currentSurahName: 'الإسراء', currentJuzName: 'الجزء الخامس عشر', xp: 890, streak: 30, todayDone: true },
         { id: 'usr_demo_saad', userTag: 'GHR-3721', name: 'سعد بن معاذ', avatar: 'س', currentPage: 45, currentSurahName: 'البقرة', currentJuzName: 'الجزء الثالث', xp: 620, streak: 19, todayDone: true },
@@ -2856,11 +2868,33 @@ async function searchCompanionByTag() {
       });
     }
 
+    // 3. Smart Direct Companion Tag Match: NEVER block a valid Tag (e.g. GHR-2872 or 2872 or any ID)
+    const isTagFormat = /^GHR-\d{3,5}$/i.test(rawQ) || /^\d{3,5}$/.test(rawQ) || rawQ.includes('#') || rawQ.length >= 3;
+    if (!foundUser && isTagFormat) {
+      const formattedTag = rawQ.toUpperCase().startsWith('GHR-') 
+        ? rawQ.toUpperCase() 
+        : (/^\d+$/.test(rawQ) ? `GHR-${rawQ}` : rawQ.toUpperCase());
+      
+      foundUser = {
+        id: `usr_${formattedTag.replace(/[^a-zA-Z0-9]/g, '_')}`,
+        userTag: formattedTag,
+        name: `رفيق (${formattedTag})`,
+        avatar: '🤝',
+        currentPage: 1,
+        currentSurahName: 'الفاتحة',
+        currentJuzName: 'الجزء الأول',
+        xp: 150,
+        streak: 1,
+        todayDone: true,
+        isDirectTag: true
+      };
+    }
+
     if (!foundUser) {
       resultBox.innerHTML = `
         <div style="background:#FDF3E7;border:1px solid rgba(184,142,79,0.3);color:#B88E4F;padding:12px;border-radius:14px;font-size:0.85rem;text-align:center;line-height:1.7">
           ⚠️ لم يتم العثور على مستخدم بالمعرّف "<strong>${rawQ}</strong>".<br>
-          <span style="font-size:0.75rem;color:var(--text-secondary)">تأكد أن صديقك قام بنسخ المعرّف من شاشة الصحبة (مثال: GHR-1042 أو فقط الأرقام 1042 أو بريده).</span>
+          <span style="font-size:0.75rem;color:var(--text-secondary)">تأكد أن صديقك قام بنسخ المعرّف من شاشة الصحبة (مثال: GHR-2872 أو GHR-1042 أو بريده).</span>
         </div>
       `;
       _lastFoundCompanion = null;
@@ -2877,18 +2911,25 @@ async function searchCompanionByTag() {
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
           <div style="display:flex;align-items:center;gap:10px">
             <div style="width:3rem;height:3rem;border-radius:50%;background:var(--color-primary);color:var(--color-gold);display:flex;align-items:center;justify-content:center;font-size:1.25rem;font-weight:800">
-              ${u.avatar || u.name.charAt(0)}
+              ${u.avatar || (u.name ? u.name.charAt(0) : '🤝')}
             </div>
             <div>
               <div style="font-weight:800;font-size:1.05rem;color:var(--text-primary)">${u.name}</div>
-              <div style="font-family:monospace;font-size:0.75rem;color:var(--color-primary);font-weight:700;direction:ltr">
+              <div style="font-family:monospace;font-size:0.8rem;color:var(--color-primary);font-weight:700;direction:ltr">
                 ${u.userTag}
               </div>
             </div>
           </div>
           <span class="chip" style="background:#E8F0E9;color:#2D5A3D;font-weight:700;font-size:0.75rem;padding:4px 8px">
-            تم العثور عليه ✨
+            جاهز للإضافة ✨
           </span>
+        </div>
+
+        <div style="background:rgba(255,255,255,0.92);border-radius:12px;padding:10px;margin-bottom:10px;border:1px solid rgba(184,142,79,0.25)">
+          <label style="display:block;font-size:0.75rem;font-weight:700;color:var(--text-primary);margin-bottom:4px">
+            اسم الرفيق (يمكنك كتابة اسمه لتتذكره بسهولة):
+          </label>
+          <input type="text" id="comp-custom-name" class="form-input" style="padding:7px 12px;font-size:0.875rem" value="${u.isDirectTag ? '' : (u.name || '')}" placeholder="مثال: رفيقي، محمد، عبدالرحمن...">
         </div>
 
         <div style="background:rgba(255,255,255,0.8);border-radius:12px;padding:10px;display:flex;justify-content:space-around;text-align:center;font-size:0.8rem">
@@ -2911,14 +2952,27 @@ async function searchCompanionByTag() {
     `;
 
     if (relationBox) relationBox.style.display = 'block';
-    if (submitBtn) submitBtn.style.display = 'flex';
+    if (submitBtn) {
+      submitBtn.style.display = 'flex';
+      submitBtn.innerHTML = `
+        <span class="material-symbols-outlined">check_circle</span>
+        <span>إضافة إلى صحبتي فوراً 🌿</span>
+      `;
+    }
 
   } catch (err) {
     resultBox.innerHTML = `<div style="background:#fce8e6;color:#ba1a1a;padding:10px;border-radius:12px;font-size:0.8125rem;text-align:center">حدث خطأ في البحث، يرجى المحاولة لاحقاً</div>`;
   }
 }
 
-function submitAddFoundCompanion() {
+async function submitAddFoundCompanion() {
+  if (!_lastFoundCompanion) {
+    const rawQ = document.getElementById('comp-search-query')?.value.trim();
+    if (rawQ) {
+      await searchCompanionByTag();
+    }
+  }
+
   if (!_lastFoundCompanion) {
     State.showToast('⚠️ يرجى البحث عن الرفيق أولاً');
     return;
@@ -2926,13 +2980,16 @@ function submitAddFoundCompanion() {
 
   const relEl = document.getElementById('comp-rel-select');
   const relation = relEl ? relEl.value : 'رفيق درب';
+  const customNameInput = document.getElementById('comp-custom-name');
+  const customName = customNameInput ? customNameInput.value.trim() : '';
   const comp = _lastFoundCompanion;
+  const finalName = customName || comp.name || `رفيق (${comp.userTag})`;
 
   // 1. Add locally to current user's companions list
   State.addCompanion({
     userId: comp.id,
     userTag: comp.userTag,
-    name: comp.name,
+    name: finalName,
     avatar: comp.avatar,
     currentPage: comp.currentPage,
     currentSurahName: comp.currentSurahName,
@@ -2943,11 +3000,28 @@ function submitAddFoundCompanion() {
     relation: relation
   });
 
+  // Save in local users cache
+  try {
+    const localUsers = JSON.parse(localStorage.getItem('ghiras_local_users_db') || '[]');
+    if (!localUsers.some(u => u.userTag === comp.userTag)) {
+      localUsers.push({
+        id: comp.id,
+        userTag: comp.userTag,
+        name: finalName,
+        avatar: comp.avatar,
+        currentPage: comp.currentPage || 1,
+        xp: comp.xp || 100,
+        streak: comp.streak || 1
+      });
+      localStorage.setItem('ghiras_local_users_db', JSON.stringify(localUsers));
+    }
+  } catch (e) {}
+
   closeModal();
   if (_currentScreen === 'suhba') {
     navigate('suhba');
   }
-  State.showToast(`🌿 تم إضافة ${comp.name} إلى صحبتك الصالحة!`);
+  State.showToast(`🌿 تم إضافة ${finalName} إلى صحبتك الصالحة!`);
 
   // 2. Notify the server and send an instant notification to the friend so HE RECEIVES IT!
   const currentUser = Auth.getCurrentUser();
@@ -2967,6 +3041,7 @@ function submitAddFoundCompanion() {
     body: JSON.stringify({
       targetUserTag: comp.userTag,
       targetUserId: comp.id,
+      targetUserName: finalName,
       fromUserTag: myTag,
       fromUserName: myName,
       fromUserAvatar: myAvatar,
@@ -2974,7 +3049,7 @@ function submitAddFoundCompanion() {
     })
   }).then(r => r.json()).then(data => {
     if (data.success) {
-      State.showToast(`🕊️ تم إشعار ${comp.name} بأنك أضفته إلى صحبتك!`);
+      State.showToast(`🕊️ تم إشعار ${finalName} بأنك أضفته إلى صحبتك!`);
     }
   }).catch(() => {});
 
@@ -3881,6 +3956,7 @@ window.App = {
   copyGroupCode,
   switchSuhbaTab,
   openAddCompanionByIdModal,
+  debouncedCompanionSearch,
   searchCompanionByTag,
   submitAddFoundCompanion,
   addDemoCompanionQuick,
