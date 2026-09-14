@@ -28,8 +28,38 @@ function generateLocalTag(name) {
   return `${clean}#${num}`;
 }
 
-async function hashPasswordLocal(password) {
-  // Use SubtleCrypto SHA-256 for basic local password hashing
+function generateLocalSalt() {
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const arr = new Uint8Array(16);
+    crypto.getRandomValues(arr);
+    return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+  }
+  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+}
+
+async function hashPasswordLocal(password, salt = 'ghiras_salt_') {
+  // Use SubtleCrypto SHA-256 with per-user cryptographic salt
+  try {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(salt + ':' + password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (e) {
+    // Fallback for environments without SubtleCrypto
+    let hash = 0;
+    const str = salt + ':' + password;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return 'fallback_' + Math.abs(hash).toString(36);
+  }
+}
+
+async function hashPasswordLegacyStatic(password) {
+  // Legacy hash without per-user salt for backward compatibility
   try {
     const encoder = new TextEncoder();
     const data = encoder.encode('ghiras_salt_' + password);
@@ -37,7 +67,6 @@ async function hashPasswordLocal(password) {
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   } catch (e) {
-    // Fallback for environments without SubtleCrypto: simple obfuscation
     let hash = 0;
     const str = 'ghiras_salt_' + password;
     for (let i = 0; i < str.length; i++) {
@@ -149,7 +178,8 @@ export const Auth = {
       throw new Error('البريد الإلكتروني مسجل مسبقاً، يرجى تسجيل الدخول');
     }
 
-    const hashedPw = await hashPasswordLocal(password);
+    const salt = generateLocalSalt();
+    const hashedPw = await hashPasswordLocal(password, salt);
 
     const newUser = {
       id: 'usr_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 4),
@@ -157,6 +187,7 @@ export const Auth = {
       email: cleanEmail,
       avatar: cleanName.charAt(0) || 'غ',
       userTag: generateLocalTag(cleanName),
+      salt: salt,
       isGuest: false,
       isLocal: true,
       createdAt: new Date().toISOString()
@@ -199,15 +230,45 @@ export const Auth = {
       throw new Error('لا يوجد حساب بهذا البريد الإلكتروني، يرجى إنشاء حساب جديد');
     }
 
-    if (userRecord.passwordHash) {
-      const hashedInput = await hashPasswordLocal(password);
-      // Security: Only compare hashed passwords — no plaintext fallback
-      if (userRecord.passwordHash !== hashedInput) {
-        throw new Error('كلمة المرور غير صحيحة');
+    let isValid = false;
+    let needsUpgrade = false;
+
+    // Check with modern per-user salt
+    if (userRecord.salt && userRecord.passwordHash) {
+      const hashedInput = await hashPasswordLocal(password, userRecord.salt);
+      if (userRecord.passwordHash === hashedInput) {
+        isValid = true;
       }
     }
 
-    const { passwordHash, ...safeUser } = userRecord;
+    // Fallback A: Legacy hash with static salt ('ghiras_salt_' + password)
+    if (!isValid && userRecord.passwordHash) {
+      const legacyStaticHash = await hashPasswordLegacyStatic(password);
+      if (userRecord.passwordHash === legacyStaticHash) {
+        isValid = true;
+        needsUpgrade = true;
+      }
+    }
+
+    // Fallback B: Legacy plaintext password from early versions — verify & migrate
+    if (!isValid && userRecord.passwordHash && userRecord.passwordHash === password) {
+      isValid = true;
+      needsUpgrade = true;
+    }
+
+    if (!isValid) {
+      throw new Error('كلمة المرور غير صحيحة');
+    }
+
+    // Auto-migrate legacy accounts to modern unique salt + strong hash
+    if (needsUpgrade || !userRecord.salt) {
+      const newSalt = generateLocalSalt();
+      userRecord.salt = newSalt;
+      userRecord.passwordHash = await hashPasswordLocal(password, newSalt);
+      saveLocalUsers(localUsers);
+    }
+
+    const { passwordHash, salt, ...safeUser } = userRecord;
     const token = 'ghiras_local_' + safeUser.id;
     this.setSession(safeUser, token);
     return { user: safeUser, token, state: null };

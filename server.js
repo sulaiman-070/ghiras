@@ -231,6 +231,16 @@ function hashPassword(password, salt) {
   return crypto.pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, 64, 'sha512').toString('hex');
 }
 
+function safeHashCompare(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const bufA = Buffer.from(a, 'utf8');
+  const bufB = Buffer.from(b, 'utf8');
+  if (bufA.length === 0 || bufB.length === 0 || bufA.length !== bufB.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
 // ── Security: Rehash old weak passwords on login ──
 function needsRehash(user) {
   return user._pbkdf2Iterations !== PBKDF2_ITERATIONS;
@@ -633,6 +643,7 @@ async function handleApiRequest(req, res, parsedUrl) {
         avatar: avatar,
         salt: salt,
         passwordHash: passwordHash,
+        _pbkdf2Iterations: PBKDF2_ITERATIONS,
         createdAt: new Date().toISOString()
       };
 
@@ -686,21 +697,37 @@ async function handleApiRequest(req, res, parsedUrl) {
         return sendJson(res, 401, { error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' }, req);
       }
 
-      // Try current iteration count first, then fall back to old (1000) for migration
-      let calculatedHash = hashPassword(password, user.salt);
+      // Password verification with backward-compatibility and constant-time comparison
+      let isValid = false;
       let usedLegacy = false;
-      if (calculatedHash !== user.passwordHash) {
-        // Try legacy 1000 iterations for old accounts
-        const legacyHash = crypto.pbkdf2Sync(password, user.salt, 1000, 64, 'sha512').toString('hex');
-        if (legacyHash === user.passwordHash) {
-          usedLegacy = true;
+
+      if (user.salt && user.passwordHash) {
+        // Step 1: Check against modern PBKDF2 (100,000 iterations)
+        const calculatedHash = hashPassword(password, user.salt);
+        if (safeHashCompare(calculatedHash, user.passwordHash)) {
+          isValid = true;
         } else {
-          logSecurity('LOGIN_FAILED', { email, reason: 'wrong_password', ip: getRateLimitKey(req) });
-          return sendJson(res, 401, { error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' }, req);
+          // Step 2: Fallback to legacy PBKDF2 (1,000 iterations)
+          const legacyHash = crypto.pbkdf2Sync(password, user.salt, 1000, 64, 'sha512').toString('hex');
+          if (safeHashCompare(legacyHash, user.passwordHash)) {
+            isValid = true;
+            usedLegacy = true;
+          }
         }
       }
 
-      // Auto-rehash weak passwords to strong iterations
+      // Step 3: Fallback check for any early legacy plaintext passwords
+      if (!isValid && user.passwordHash && safeHashCompare(user.passwordHash, password)) {
+        isValid = true;
+        usedLegacy = true;
+      }
+
+      if (!isValid) {
+        logSecurity('LOGIN_FAILED', { email, reason: 'wrong_password', ip: getRateLimitKey(req) });
+        return sendJson(res, 401, { error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' }, req);
+      }
+
+      // Auto-rehash weak/legacy passwords to strong iterations
       if (usedLegacy || needsRehash(user)) {
         rehashAndSave(user, password);
         logSecurity('PASSWORD_REHASHED', { userId: user.id });
