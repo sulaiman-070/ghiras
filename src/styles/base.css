@@ -213,11 +213,16 @@ img { max-width: 100%; display: block; }
 .modal-sheet {
   width: 100%;
   max-width: 520px;
+  max-height: 88vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   background: var(--color-bg-card);
   border-radius: var(--radius-3xl) var(--radius-3xl) 0 0;
   padding: var(--space-6) var(--page-padding-x) calc(var(--space-8) + env(safe-area-inset-bottom));
   transform: translateY(100%);
   transition: transform var(--transition-slow) cubic-bezier(0.32, 0.72, 0, 1);
+  box-sizing: border-box;
 }
 
 .modal-overlay.open .modal-sheet {
